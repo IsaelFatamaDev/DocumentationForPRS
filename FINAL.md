@@ -465,7 +465,7 @@ vg-ms-users/
 │   │   ├── domain/
 │   │   │   ├── models/
 │   │   │   │   ├── User.java                           → [CLASS] Modelo de dominio
-│   │   │   │   └── Role.java                           → [ENUM] ADMIN, USER, OPERATOR
+│   │   │   │   └── Role.java                           → [ENUM] SUPER_ADMIN, ADMIN, CLIENT
 │   │   │   ├── ports/
 │   │   │   │   ├── in/
 │   │   │   │   │   ├── ICreateUserUseCase.java         → [INTERFACE]
@@ -535,7 +535,9 @@ vg-ms-users/
 │   │           ├── R2dbcConfig.java                    → [CLASS] @Configuration PostgreSQL Reactive
 │   │           ├── WebClientConfig.java                → [CLASS] @Configuration WebClient Bean
 │   │           ├── RabbitMQConfig.java                 → [CLASS] @Configuration RabbitMQ
-│   │           └── Resilience4jConfig.java             → [CLASS] @Configuration Circuit Breaker
+│   │           ├── Resilience4jConfig.java             → [CLASS] @Configuration Circuit Breaker
+│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration Spring Security WebFlux + JWT
+│   │           └── JwtAuthenticationFilter.java        → [CLASS] WebFilter JWT Token Validation
 │   │
 │   └── resources/
 │       ├── application.yml                             → Base común
@@ -3111,6 +3113,464 @@ docker-compose restart vg-ms-users
 
 ---
 
+## 🔐 SEGURIDAD Y GESTIÓN DE ROLES
+
+### 📋 **Roles del Sistema**
+
+```java
+package pe.edu.vallegrande.users.domain.models;
+
+public enum Role {
+    SUPER_ADMIN,  // Acceso total al sistema (crear organizaciones, gestionar todo)
+    ADMIN,        // Administrador de una organización (CRUD en su org)
+    CLIENT        // Usuario final (consultas, pagos, reportes)
+}
+```
+
+### 🎯 **Matriz de Permisos por Endpoint**
+
+```
+┌─────────────────────────────────────┬──────────────┬─────────┬─────────┐
+│ ENDPOINT                            │ SUPER_ADMIN  │ ADMIN   │ CLIENT  │
+├─────────────────────────────────────┼──────────────┼─────────┼─────────┤
+│ POST   /api/organizations           │      ✅      │    ❌   │    ❌   │
+│ GET    /api/organizations/{id}      │      ✅      │    ✅   │    ✅   │
+│ PUT    /api/organizations/{id}      │      ✅      │    ✅   │    ❌   │
+│ DELETE /api/organizations/{id}      │      ✅      │    ❌   │    ❌   │
+│                                     │              │         │         │
+│ POST   /api/users                   │      ✅      │    ✅   │    ❌   │
+│ GET    /api/users                   │      ✅      │    ✅   │    ❌   │
+│ GET    /api/users/{id}              │      ✅      │    ✅   │    ✅   │
+│ PUT    /api/users/{id}              │      ✅      │    ✅   │    ✅*  │
+│ DELETE /api/users/{id}              │      ✅      │    ✅   │    ❌   │
+│                                     │              │         │         │
+│ POST   /api/payments                │      ✅      │    ✅   │    ✅   │
+│ GET    /api/payments                │      ✅      │    ✅   │    ✅*  │
+│ GET    /api/payments/{id}           │      ✅      │    ✅   │    ✅*  │
+│                                     │              │         │         │
+│ GET    /api/reports/consumption     │      ✅      │    ✅   │    ✅*  │
+│ GET    /api/reports/debts           │      ✅      │    ✅   │    ✅*  │
+│ GET    /api/reports/payments        │      ✅      │    ✅   │    ✅*  │
+└─────────────────────────────────────┴──────────────┴─────────┴─────────┘
+
+* = Solo puede acceder a sus propios datos (validación por userId u organizationId)
+```
+
+---
+
+### 🛡️ **Configuración Spring Security WebFlux + JWT**
+
+#### **1. SecurityConfig.java**
+
+```java
+package pe.edu.vallegrande.users.infrastructure.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
+
+@Configuration
+@EnableWebFluxSecurity
+@EnableReactiveMethodSecurity  // ✅ Habilita @PreAuthorize en métodos
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    }
+
+    @Bean
+    public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
+        return http
+            .csrf(ServerHttpSecurity.CsrfSpec::disable)
+            .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
+            .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
+            .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
+
+            // ═══════════════ RUTAS PÚBLICAS (sin autenticación) ═══════════════
+            .authorizeExchange(exchanges -> exchanges
+                // Login y registro son públicos
+                .pathMatchers("/api/auth/login", "/api/auth/register").permitAll()
+
+                // Actuator y health checks públicos
+                .pathMatchers("/actuator/**", "/health").permitAll()
+
+                // ═══════════════ RUTAS PROTEGIDAS POR ROL ═══════════════
+
+                // SUPER_ADMIN: Crear organizaciones
+                .pathMatchers(HttpMethod.POST, "/api/organizations").hasAuthority("SUPER_ADMIN")
+                .pathMatchers(HttpMethod.DELETE, "/api/organizations/**").hasAuthority("SUPER_ADMIN")
+
+                // SUPER_ADMIN + ADMIN: Gestionar organizaciones
+                .pathMatchers(HttpMethod.PUT, "/api/organizations/**")
+                    .hasAnyAuthority("SUPER_ADMIN", "ADMIN")
+
+                // SUPER_ADMIN + ADMIN + CLIENT: Ver organizaciones
+                .pathMatchers(HttpMethod.GET, "/api/organizations/**")
+                    .hasAnyAuthority("SUPER_ADMIN", "ADMIN", "CLIENT")
+
+                // SUPER_ADMIN + ADMIN: Gestionar usuarios
+                .pathMatchers(HttpMethod.POST, "/api/users").hasAnyAuthority("SUPER_ADMIN", "ADMIN")
+                .pathMatchers(HttpMethod.GET, "/api/users").hasAnyAuthority("SUPER_ADMIN", "ADMIN")
+                .pathMatchers(HttpMethod.DELETE, "/api/users/**").hasAnyAuthority("SUPER_ADMIN", "ADMIN")
+
+                // Cualquier usuario autenticado puede ver su propio perfil
+                .pathMatchers(HttpMethod.GET, "/api/users/**").authenticated()
+                .pathMatchers(HttpMethod.PUT, "/api/users/**").authenticated()
+
+                // Pagos: Todos los roles autenticados (validación en capa de negocio)
+                .pathMatchers("/api/payments/**").authenticated()
+
+                // Reportes: Todos los roles autenticados (validación en capa de negocio)
+                .pathMatchers("/api/reports/**").authenticated()
+
+                // Resto de endpoints: requieren autenticación
+                .anyExchange().authenticated()
+            )
+
+            // ═══════════════ JWT FILTER ═══════════════
+            .addFilterAt(jwtAuthenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)
+
+            .build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+```
+
+---
+
+#### **2. JwtAuthenticationFilter.java**
+
+```java
+package pe.edu.vallegrande.users.infrastructure.config;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
+import reactor.core.publisher.Mono;
+
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Component
+public class JwtAuthenticationFilter implements WebFilter {
+
+    @Value("${jwt.secret}")
+    private String jwtSecret;
+
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        String path = exchange.getRequest().getPath().value();
+
+        // Rutas públicas: omitir validación JWT
+        if (path.startsWith("/api/auth/") || path.startsWith("/actuator/") || path.equals("/health")) {
+            return chain.filter(exchange);
+        }
+
+        String token = extractToken(exchange);
+
+        if (token == null) {
+            log.warn("No JWT token found in request to {}", path);
+            return chain.filter(exchange);
+        }
+
+        try {
+            Claims claims = validateToken(token);
+
+            String userId = claims.getSubject();
+            String role = claims.get("role", String.class);
+            String organizationId = claims.get("organizationId", String.class);
+
+            // Crear Authentication con rol como authority
+            List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(role));
+
+            UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(userId, null, authorities);
+
+            // Agregar claims adicionales como detalles
+            authentication.setDetails(new JwtUserDetails(userId, organizationId, role));
+
+            // Establecer contexto de seguridad reactivo
+            return chain.filter(exchange)
+                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
+
+        } catch (Exception e) {
+            log.error("Invalid JWT token: {}", e.getMessage());
+            return chain.filter(exchange);
+        }
+    }
+
+    private String extractToken(ServerWebExchange exchange) {
+        String bearerToken = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
+
+    private Claims validateToken(String token) {
+        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        return Jwts.parserBuilder()
+            .setSigningKey(key)
+            .build()
+            .parseClaimsJws(token)
+            .getBody();
+    }
+
+    // Clase para almacenar información adicional del JWT
+    public static class JwtUserDetails {
+        private final String userId;
+        private final String organizationId;
+        private final String role;
+
+        public JwtUserDetails(String userId, String organizationId, String role) {
+            this.userId = userId;
+            this.organizationId = organizationId;
+            this.role = role;
+        }
+
+        public String getUserId() { return userId; }
+        public String getOrganizationId() { return organizationId; }
+        public String getRole() { return role; }
+    }
+}
+```
+
+---
+
+### 🎯 **Uso de @PreAuthorize en Controllers**
+
+```java
+package pe.edu.vallegrande.users.infrastructure.adapters.in.rest;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import pe.edu.vallegrande.users.application.dto.common.ApiResponse;
+import pe.edu.vallegrande.users.application.dto.request.CreateUserRequest;
+import pe.edu.vallegrande.users.application.dto.response.UserResponse;
+import pe.edu.vallegrande.users.domain.ports.in.ICreateUserUseCase;
+import pe.edu.vallegrande.users.infrastructure.config.JwtAuthenticationFilter.JwtUserDetails;
+import reactor.core.publisher.Mono;
+
+@RestController
+@RequestMapping("/api/users")
+@RequiredArgsConstructor
+public class UserController {
+
+    private final ICreateUserUseCase createUserUseCase;
+
+    // ═══════════════ SUPER_ADMIN + ADMIN ═══════════════
+    @PostMapping
+    @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'ADMIN')")
+    public Mono<ApiResponse<UserResponse>> createUser(@RequestBody CreateUserRequest request) {
+        return createUserUseCase.execute(request)
+            .map(user -> ApiResponse.success(user, "Usuario creado exitosamente"));
+    }
+
+    // ═══════════════ SUPER_ADMIN + ADMIN ═══════════════
+    @GetMapping
+    @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'ADMIN')")
+    public Mono<ApiResponse<List<UserResponse>>> listUsers() {
+        // SUPER_ADMIN: ve todos los usuarios
+        // ADMIN: solo usuarios de su organización (validar en UseCase)
+        return getUsersUseCase.execute()
+            .collectList()
+            .map(users -> ApiResponse.success(users, "Usuarios obtenidos"));
+    }
+
+    // ═══════════════ CUALQUIER USUARIO AUTENTICADO ═══════════════
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public Mono<ApiResponse<UserResponse>> getUserById(
+            @PathVariable String id,
+            Authentication authentication) {
+
+        // Validación en capa de negocio:
+        // - CLIENT: solo puede ver su propio perfil
+        // - ADMIN: usuarios de su organización
+        // - SUPER_ADMIN: cualquier usuario
+
+        JwtUserDetails details = (JwtUserDetails) authentication.getDetails();
+        String requesterId = authentication.getName();
+        String requesterRole = details.getRole();
+        String requesterOrgId = details.getOrganizationId();
+
+        return getUserUseCase.execute(id, requesterId, requesterRole, requesterOrgId)
+            .map(user -> ApiResponse.success(user, "Usuario obtenido"));
+    }
+
+    // ═══════════════ VALIDACIÓN EN CAPA DE NEGOCIO ═══════════════
+    @PutMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public Mono<ApiResponse<UserResponse>> updateUser(
+            @PathVariable String id,
+            @RequestBody UpdateUserRequest request,
+            Authentication authentication) {
+
+        JwtUserDetails details = (JwtUserDetails) authentication.getDetails();
+
+        // El UseCase validará:
+        // - CLIENT: solo puede actualizar su propio perfil
+        // - ADMIN: usuarios de su organización
+        // - SUPER_ADMIN: cualquier usuario
+
+        return updateUserUseCase.execute(id, request, details)
+            .map(user -> ApiResponse.success(user, "Usuario actualizado"));
+    }
+
+    // ═══════════════ SOLO SUPER_ADMIN ═══════════════
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('SUPER_ADMIN')")
+    public Mono<ApiResponse<Void>> deleteUser(@PathVariable String id) {
+        return deleteUserUseCase.execute(id)
+            .then(Mono.just(ApiResponse.success(null, "Usuario eliminado")));
+    }
+}
+```
+
+---
+
+### 🔑 **Generación de JWT en AuthenticationService**
+
+```java
+package pe.edu.vallegrande.users.application.usecases;
+
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import pe.edu.vallegrande.users.domain.models.User;
+
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
+
+@Service
+public class AuthenticateUserUseCaseImpl {
+
+    @Value("${jwt.secret}")
+    private String jwtSecret;
+
+    @Value("${jwt.expiration-hours:24}")
+    private int jwtExpirationHours;
+
+    public String generateToken(User user) {
+        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+
+        LocalDateTime expiration = LocalDateTime.now().plusHours(jwtExpirationHours);
+
+        return Jwts.builder()
+            .setSubject(user.getId().toString())               // userId
+            .claim("role", user.getRole().name())              // SUPER_ADMIN, ADMIN, CLIENT
+            .claim("organizationId", user.getOrganizationId().toString())
+            .claim("fullName", user.getFullName())
+            .setIssuedAt(new Date())
+            .setExpiration(Date.from(expiration.atZone(ZoneId.systemDefault()).toInstant()))
+            .signWith(key)
+            .compact();
+    }
+}
+```
+
+---
+
+### ⚙️ **Configuración JWT en application.yml**
+
+```yaml
+# ═══════════════════ JWT CONFIGURATION ═══════════════════
+jwt:
+  secret: ${JWT_SECRET:VanguardiaJASS2026SecretKeyMinimo32CaracteresParaHMACSHA256Seguridad}
+  expiration-hours: 24  # Token válido por 24 horas
+```
+
+---
+
+### 📦 **Dependencias Maven para Spring Security WebFlux + JWT**
+
+```xml
+<!-- Spring Security WebFlux -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-security</artifactId>
+</dependency>
+
+<!-- JWT (jjwt) -->
+<dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt-api</artifactId>
+    <version>0.12.5</version>
+</dependency>
+<dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt-impl</artifactId>
+    <version>0.12.5</version>
+    <scope>runtime</scope>
+</dependency>
+<dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt-jackson</artifactId>
+    <version>0.12.5</version>
+    <scope>runtime</scope>
+</dependency>
+```
+
+---
+
+### ✅ **Resumen de Estrategia de Seguridad**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ NIVEL DE SEGURIDAD                                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│ 1. SecurityConfig (Spring Security)                                 │
+│    ├─> Rutas públicas (/api/auth/login)                            │
+│    ├─> Rutas protegidas por rol básico (.hasAuthority())           │
+│    └─> JWT Filter (validación de token)                            │
+│                                                                     │
+│ 2. Controller (@PreAuthorize)                                      │
+│    ├─> Validación de roles permitidos                              │
+│    └─> Extracción de información del JWT                           │
+│                                                                     │
+│ 3. UseCase (Lógica de negocio)                                     │
+│    ├─> Validación de permisos específicos                          │
+│    │   (CLIENT solo ve sus datos)                                  │
+│    │   (ADMIN solo ve datos de su organización)                    │
+│    └─> Validación de reglas de negocio                             │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## 🎯 CONCLUSIÓN
 
 Esta arquitectura reactiva + hexagonal + eventos proporciona:
@@ -3126,6 +3586,7 @@ Esta arquitectura reactiva + hexagonal + eventos proporciona:
 ✅ **Paquete base** pe.edu.vallegrande.{microservicio}
 ✅ **Multi-organización** validado en tiempo real
 ✅ **3 perfiles de configuración** (base, dev, prod)
+✅ **Seguridad JWT + Roles** (SUPER_ADMIN, ADMIN, CLIENT)
 
 ---
 
