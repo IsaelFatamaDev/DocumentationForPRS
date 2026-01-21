@@ -2756,6 +2756,343 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 ---
 
+## ⚙️ CONFIGURACIÓN APPLICATION.YML
+
+### 📋 **Perfiles de Configuración**
+
+Cada microservicio debe tener 3 archivos de configuración:
+
+```
+src/main/resources/
+├── application.yml              → Configuración base (común a todos los perfiles)
+├── application-dev.yml          → Desarrollo (Docker local en subsistema)
+└── application-prod.yml         → Producción (Docker Compose VPC)
+```
+
+---
+
+### 1️⃣ **application.yml** (BASE - Común a todos los perfiles)
+
+**Archivo:** `src/main/resources/application.yml`
+
+```yaml
+# ═══════════════════════════════════════════════════════════════
+# CONFIGURACIÓN BASE - vg-ms-users
+# Valores comunes para TODOS los perfiles (dev, prod)
+# ═══════════════════════════════════════════════════════════════
+
+spring:
+  application:
+    name: vg-ms-users
+
+  # ═══════════════════ FLYWAY (Migraciones) ═══════════════════
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    schemas: public
+
+  # ═══════════════════ JACKSON (JSON Serialization) ═══════════════════
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: America/Lima
+
+# ═══════════════════ SERVER CONFIGURATION ═══════════════════
+server:
+  port: 8081
+  error:
+    include-message: always
+    include-binding-errors: always
+
+# ═══════════════════ LOGGING ═══════════════════
+logging:
+  level:
+    root: INFO
+    pe.edu.vallegrande.users: DEBUG
+    org.springframework.r2dbc: DEBUG
+    io.r2dbc.postgresql.QUERY: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# ═══════════════════ MANAGEMENT (Actuator) ═══════════════════
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# ═══════════════════ RESILIENCE4J (Circuit Breaker) ═══════════════════
+resilience4j:
+  circuitbreaker:
+    instances:
+      organizationService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 10s
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 2s
+        slow-call-rate-threshold: 50
+
+  retry:
+    instances:
+      organizationService:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - java.io.IOException
+          - org.springframework.web.reactive.function.client.WebClientRequestException
+```
+
+---
+
+### 2️⃣ **application-dev.yml** (DESARROLLO - Docker Local)
+
+**Archivo:** `src/main/resources/application-dev.yml`
+
+```yaml
+# ═══════════════════════════════════════════════════════════════
+# PERFIL DE DESARROLLO (dev)
+# Docker local en subsistema WSL/Linux
+# Activar con: --spring.profiles.active=dev
+# ═══════════════════════════════════════════════════════════════
+
+spring:
+  # ═══════════════════ R2DBC (PostgreSQL Reactive) ═══════════════════
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/sistemajass
+    username: sistemajass_user
+    password: 123456
+    pool:
+      enabled: true
+      initial-size: 10
+      max-size: 20
+      max-idle-time: 30m
+      validation-query: SELECT 1
+
+  # ═══════════════════ FLYWAY (Usa JDBC para migraciones) ═══════════════════
+  flyway:
+    url: jdbc:postgresql://localhost:5432/sistemajass
+    user: sistemajass_user
+    password: 123456
+    enabled: true
+
+  # ═══════════════════ RABBITMQ ═══════════════════
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+
+# ═══════════════════ WEBCLIENT (REST Clients) ═══════════════════
+services:
+  organizations:
+    url: http://localhost:8082
+    timeout: 2000  # 2 segundos
+
+# ═══════════════════ LOGGING (Más detallado en dev) ═══════════════════
+logging:
+  level:
+    root: INFO
+    pe.edu.vallegrande.users: DEBUG
+    org.springframework.r2dbc: DEBUG
+    io.r2dbc.postgresql.QUERY: DEBUG
+    org.springframework.amqp: DEBUG
+    org.flywaydb: DEBUG
+```
+
+---
+
+### 3️⃣ **application-prod.yml** (PRODUCCIÓN - Docker Compose)
+
+**Archivo:** `src/main/resources/application-prod.yml`
+
+```yaml
+# ═══════════════════════════════════════════════════════════════
+# PERFIL DE PRODUCCIÓN (prod/docker)
+# Docker Compose con VPC interna
+# Activar con: --spring.profiles.active=prod
+# Variables de entorno desde docker-compose.yml
+# ═══════════════════════════════════════════════════════════════
+
+spring:
+  # ═══════════════════ R2DBC (PostgreSQL Reactive) ═══════════════════
+  r2dbc:
+    url: ${SPRING_R2DBC_URL:r2dbc:postgresql://postgres:5432/vg_users}
+    username: ${SPRING_R2DBC_USERNAME:vanguardia}
+    password: ${SPRING_R2DBC_PASSWORD:vanguardia2026}
+    pool:
+      enabled: true
+      initial-size: 20
+      max-size: 50
+      max-idle-time: 30m
+      validation-query: SELECT 1
+
+  # ═══════════════════ FLYWAY (Usa JDBC para migraciones) ═══════════════════
+  flyway:
+    url: jdbc:postgresql://postgres:5432/vg_users
+    user: ${SPRING_R2DBC_USERNAME:vanguardia}
+    password: ${SPRING_R2DBC_PASSWORD:vanguardia2026}
+    enabled: true
+
+  # ═══════════════════ RABBITMQ ═══════════════════
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:vanguardia}
+    password: ${RABBITMQ_PASSWORD:vanguardia2026}
+    virtual-host: ${RABBITMQ_VIRTUAL_HOST:vanguardia}
+
+# ═══════════════════ WEBCLIENT (REST Clients) ═══════════════════
+services:
+  organizations:
+    url: ${SERVICES_ORGANIZATIONS_URL:http://vg-ms-organizations:8082}
+    timeout: 2000  # 2 segundos
+
+# ═══════════════════ LOGGING (Menos detallado en prod) ═══════════════════
+logging:
+  level:
+    root: WARN
+    pe.edu.vallegrande.users: INFO
+    org.springframework.r2dbc: WARN
+    io.r2dbc.postgresql.QUERY: WARN
+    org.springframework.amqp: WARN
+```
+
+---
+
+## 📋 **CONFIGURACIONES PARA MICROSERVICIOS CON MONGODB**
+
+### **application-dev.yml** (Para microservicios MongoDB)
+
+```yaml
+# Para: vg-ms-organizations, vg-ms-water-quality, vg-ms-claims-incidents, vg-ms-notification
+
+spring:
+  # ═══════════════════ MONGODB REACTIVE ═══════════════════
+  data:
+    mongodb:
+      uri: mongodb://admin:admin123@localhost:27017/JASS_DIGITAL?authSource=admin
+      auto-index-creation: true
+
+  # ═══════════════════ RABBITMQ ═══════════════════
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+
+# ═══════════════════ WEBCLIENT (si necesita llamar a otros servicios) ═══════════════════
+services:
+  users:
+    url: http://localhost:8081
+    timeout: 2000
+```
+
+### **application-prod.yml** (Para microservicios MongoDB)
+
+```yaml
+spring:
+  # ═══════════════════ MONGODB REACTIVE ═══════════════════
+  data:
+    mongodb:
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://vanguardia:vanguardia2026@mongodb:27017/vg_organizations?authSource=admin}
+      auto-index-creation: true
+
+  # ═══════════════════ RABBITMQ ═══════════════════
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:vanguardia}
+    password: ${RABBITMQ_PASSWORD:vanguardia2026}
+    virtual-host: ${RABBITMQ_VIRTUAL_HOST:vanguardia}
+
+# ═══════════════════ WEBCLIENT ═══════════════════
+services:
+  users:
+    url: ${SERVICES_USERS_URL:http://vg-ms-users:8081}
+    timeout: 2000
+```
+
+---
+
+## 🚀 **COMANDOS PARA EJECUTAR**
+
+### **Desarrollo (local):**
+
+```bash
+# Levantar PostgreSQL en Docker (subsistema)
+docker run -d --name sistemajass-postgres \
+  -e POSTGRES_DB=sistemajass \
+  -e POSTGRES_USER=sistemajass_user \
+  -e POSTGRES_PASSWORD=123456 \
+  -p 5432:5432 \
+  -v sistemajass_pgdata:/var/lib/postgresql/data \
+  postgres:16
+
+# Levantar RabbitMQ (opcional para dev)
+docker run -d --name rabbitmq \
+  -p 5672:5672 \
+  -p 15672:15672 \
+  rabbitmq:3.13-management-alpine
+
+# Ejecutar microservicio con perfil dev
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+
+# O con Java
+java -jar target/vg-ms-users-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev
+```
+
+### **Producción (Docker Compose):**
+
+```bash
+# Levantar todo el sistema
+docker-compose up -d
+
+# Ver logs de un servicio
+docker-compose logs -f vg-ms-users
+
+# Reiniciar un servicio
+docker-compose restart vg-ms-users
+```
+
+---
+
+## 📝 **RESUMEN DE PUERTOS**
+
+```
+┌────────────────────────────┬────────┬─────────────────────────────┐
+│ SERVICIO                   │ PUERTO │ PERFIL                      │
+├────────────────────────────┼────────┼─────────────────────────────┤
+│ vg-ms-gateway              │ 8080   │ dev, prod                   │
+│ vg-ms-users                │ 8081   │ dev, prod                   │
+│ vg-ms-organizations        │ 8082   │ dev, prod                   │
+│ vg-ms-payments             │ 8083   │ dev, prod                   │
+│ vg-ms-waterquality         │ 8084   │ dev, prod                   │
+│ vg-ms-inventory            │ 8085   │ dev, prod                   │
+│ vg-ms-claims               │ 8086   │ dev, prod                   │
+│ vg-ms-distribution         │ 8087   │ dev, prod                   │
+│ vg-ms-infrastructure       │ 8088   │ dev, prod                   │
+│ vg-ms-notification         │ 8089   │ dev, prod                   │
+│ vg-ms-authentication       │ 8090   │ dev, prod                   │
+│                            │        │                             │
+│ PostgreSQL                 │ 5432   │ dev: localhost, prod: VPC   │
+│ MongoDB                    │ 27017  │ dev: localhost, prod: VPC   │
+│ RabbitMQ (AMQP)           │ 5672   │ dev: localhost, prod: VPC   │
+│ RabbitMQ (Management UI)  │ 15672  │ dev: localhost, prod: VPC   │
+└────────────────────────────┴────────┴─────────────────────────────┘
+```
+
+---
+
 ## 🎯 CONCLUSIÓN
 
 Esta arquitectura reactiva + hexagonal + eventos proporciona:
@@ -2770,6 +3107,7 @@ Esta arquitectura reactiva + hexagonal + eventos proporciona:
 ✅ **Convenciones consistentes** (snake_case BD + camelCase Java)
 ✅ **Paquete base** pe.edu.vallegrande.{microservicio}
 ✅ **Multi-organización** validado en tiempo real
+✅ **3 perfiles de configuración** (base, dev, prod)
 
 ---
 
