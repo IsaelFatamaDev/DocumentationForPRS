@@ -456,84 +456,98 @@ vg-ms-{microservicio}/
 
 ## 🎯 ESTRUCTURA POR MICROSERVICIO {#microservicios}
 
-### 1. vg-ms-users (PostgreSQL)
+### 1. vg-ms-users (PostgreSQL - REACTIVO)
 
 ```
-
 vg-ms-users/
-└── src/main/java/com/vanguardia/users/
-    ├── domain/
-    │   ├── models/
-    │   │   ├── User.java                    → Modelo de dominio
-    │   │   ├── Role.java
-    │   │   └── valueobjects/
-    │   │       ├── UserId.java              → UUID wrapper
-    │   │       ├── Email.java               → Value object con validación
-    │   │       └── Password.java            → Value object encriptado
-    │   ├── ports/
-    │   │   ├── in/
-    │   │   │   ├── ICreateUserUseCase.java
-    │   │   │   ├── IGetUserUseCase.java
-    │   │   │   ├── IUpdateUserUseCase.java
-    │   │   │   ├── IDeleteUserUseCase.java
-    │   │   │   └── IAuthenticateUserUseCase.java
-    │   │   └── out/
-    │   │       ├── IUserRepository.java
-    │   │       ├── IRoleRepository.java
-    │   │       └── IUserEventPublisher.java
-    │   └── exceptions/
-    │       ├── UserNotFoundException.java
-    │       ├── DuplicateEmailException.java
-    │       └── InvalidCredentialsException.java
-    │
-    ├── application/
-    │   ├── usecases/
-    │   │   ├── CreateUserUseCaseImpl.java
-    │   │   ├── GetUserUseCaseImpl.java
-    │   │   ├── UpdateUserUseCaseImpl.java
-    │   │   └── AuthenticateUserUseCaseImpl.java
-    │   ├── dto/
-    │   │   ├── request/
-    │   │   │   ├── CreateUserRequest.java
-    │   │   │   ├── UpdateUserRequest.java
-    │   │   │   └── LoginRequest.java
-    │   │   └── response/
-    │   │       ├── UserResponse.java
-    │   │       └── AuthResponse.java
-    │   ├── mappers/
-    │   │   └── UserMapper.java
-    │   └── events/
-    │       ├── UserCreatedEvent.java
-    │       ├── UserUpdatedEvent.java
-    │       ├── UserDeletedEvent.java
-    │       └── publishers/
-    │           └── UserEventPublisherImpl.java
-    │
-    └── infrastructure/
-        ├── adapters/
-        │   ├── in/
-        │   │   ├── rest/
-        │   │   │   └── UserController.java
-        │   │   └── messaging/
-        │   │       └── OrganizationEventListener.java    → Escucha eventos de organizaciones
-        │   └── out/
-        │       ├── persistence/
-        │       │   ├── UserRepositoryImpl.java
-        │       │   └── RoleRepositoryImpl.java
-        │       └── messaging/
-        │           └── RabbitMQUserEventPublisher.java
-        ├── persistence/
-        │   ├── entities/
-        │   │   ├── UserEntity.java                       → @Entity @Table(name="users")
-        │   │   └── RoleEntity.java                       → @Entity @Table(name="roles")
-        │   └── repositories/
-        │       ├── UserJpaRepository.java                → extends JpaRepository
-        │       └── RoleJpaRepository.java
-        └── config/
-            ├── DatabaseConfig.java
-            ├── RabbitMQConfig.java
-            └── SecurityConfig.java
-
+├── src/main/
+│   ├── java/pe/edu/vallegrande/users/
+│   │   ├── domain/
+│   │   │   ├── models/
+│   │   │   │   ├── User.java                           → [CLASS] Modelo de dominio
+│   │   │   │   └── Role.java                           → [ENUM] ADMIN, USER, OPERATOR
+│   │   │   ├── ports/
+│   │   │   │   ├── in/
+│   │   │   │   │   ├── ICreateUserUseCase.java         → [INTERFACE]
+│   │   │   │   │   ├── IGetUserUseCase.java            → [INTERFACE]
+│   │   │   │   │   ├── IUpdateUserUseCase.java         → [INTERFACE]
+│   │   │   │   │   ├── IDeleteUserUseCase.java         → [INTERFACE]
+│   │   │   │   │   └── IAuthenticateUserUseCase.java   → [INTERFACE]
+│   │   │   │   └── out/
+│   │   │   │       ├── IUserRepository.java            → [INTERFACE] Reactivo (Mono/Flux)
+│   │   │   │       ├── IRoleRepository.java            → [INTERFACE] Reactivo (Mono/Flux)
+│   │   │   │       ├── IOrganizationClient.java        → [INTERFACE] WebClient para validar org
+│   │   │   │       └── IUserEventPublisher.java        → [INTERFACE] RabbitMQ
+│   │   │   └── exceptions/
+│   │   │       ├── UserNotFoundException.java          → [CLASS] extends RuntimeException
+│   │   │       ├── OrganizationNotFoundException.java  → [CLASS] extends RuntimeException
+│   │   │       └── InvalidCredentialsException.java    → [CLASS] extends RuntimeException
+│   │   │
+│   │   ├── application/
+│   │   │   ├── usecases/
+│   │   │   │   ├── CreateUserUseCaseImpl.java          → [CLASS] @Service implements ICreateUserUseCase
+│   │   │   │   ├── GetUserUseCaseImpl.java             → [CLASS] @Service implements IGetUserUseCase
+│   │   │   │   ├── UpdateUserUseCaseImpl.java          → [CLASS] @Service implements IUpdateUserUseCase
+│   │   │   │   └── AuthenticateUserUseCaseImpl.java    → [CLASS] @Service implements IAuthenticateUserUseCase
+│   │   │   ├── dto/
+│   │   │   │   ├── common/
+│   │   │   │   │   ├── ApiResponse.java                → [CLASS] ✅ ESTÁNDAR (T data, String message, int status)
+│   │   │   │   │   └── ErrorMessage.java               → [CLASS] ✅ ESTÁNDAR (String message, int status, LocalDateTime)
+│   │   │   │   ├── request/
+│   │   │   │   │   ├── CreateUserRequest.java          → [CLASS] @Valid
+│   │   │   │   │   ├── UpdateUserRequest.java          → [CLASS] @Valid
+│   │   │   │   │   └── LoginRequest.java               → [CLASS] @Valid
+│   │   │   │   └── response/
+│   │   │   │       ├── UserResponse.java               → [CLASS] DTO
+│   │   │   │       └── AuthResponse.java               → [CLASS] DTO (token, user)
+│   │   │   ├── mappers/
+│   │   │   │   └── UserMapper.java                     → [CLASS] @Component (Entity ↔ Domain ↔ DTO)
+│   │   │   └── events/
+│   │   │       ├── UserCreatedEvent.java               → [CLASS] Evento de dominio
+│   │   │       ├── UserUpdatedEvent.java               → [CLASS] Evento de dominio
+│   │   │       ├── UserDeletedEvent.java               → [CLASS] Evento de dominio
+│   │   │       └── publishers/
+│   │   │           └── UserEventPublisherImpl.java     → [CLASS] @Component implements IUserEventPublisher
+│   │   │
+│   │   └── infrastructure/
+│   │       ├── adapters/
+│   │       │   ├── in/
+│   │       │   │   ├── rest/
+│   │       │   │   │   └── UserController.java         → [CLASS] @RestController retorna Mono<ApiResponse<T>>
+│   │       │   │   └── messaging/
+│   │       │   │       └── OrganizationEventListener.java → [CLASS] @Component @RabbitListener
+│   │       │   └── out/
+│   │       │       ├── persistence/
+│   │       │       │   ├── UserRepositoryImpl.java     → [CLASS] @Repository implements IUserRepository
+│   │       │       │   └── RoleRepositoryImpl.java     → [CLASS] @Repository implements IRoleRepository
+│   │       │       ├── external/                       → ✅ REST Clients (WebClient)
+│   │       │       │   └── OrganizationClientImpl.java → [CLASS] @Component implements IOrganizationClient
+│   │       │       └── messaging/
+│   │       │           └── RabbitMQUserEventPublisher.java → [CLASS] @Component implements IUserEventPublisher
+│   │       ├── persistence/
+│   │       │   ├── entities/
+│   │       │   │   ├── UserEntity.java                 → [CLASS] @Table(name="users") R2DBC
+│   │       │   │   └── RoleEntity.java                 → [CLASS] @Table(name="roles") R2DBC
+│   │       │   └── repositories/
+│   │       │       ├── UserR2dbcRepository.java        → [INTERFACE] extends R2dbcRepository<UserEntity, UUID>
+│   │       │       └── RoleR2dbcRepository.java        → [INTERFACE] extends R2dbcRepository<RoleEntity, UUID>
+│   │       └── config/
+│   │           ├── R2dbcConfig.java                    → [CLASS] @Configuration PostgreSQL Reactive
+│   │           ├── WebClientConfig.java                → [CLASS] @Configuration WebClient Bean
+│   │           ├── RabbitMQConfig.java                 → [CLASS] @Configuration RabbitMQ
+│   │           └── Resilience4jConfig.java             → [CLASS] @Configuration Circuit Breaker
+│   │
+│   └── resources/
+│       ├── application.yml                             → Base común
+│       ├── application-dev.yml                         → Docker local (localhost:5432)
+│       ├── application-prod.yml                        → Docker Compose VPC
+│       └── db/migration/
+│           ├── V1__create_users_table.sql              → SQL Script
+│           └── V2__create_roles_table.sql              → SQL Script
+├── Dockerfile
+├── docker-compose.yml
+├── pom.xml
+└── README.md
 ```
 
 ### 2. vg-ms-organizations (MongoDB)
@@ -1806,8 +1820,8 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "users", indexes = {
-    @Index(name = "idx_users_email", columnList = "email", unique = true),
-    @Index(name = "idx_users_organization_id", columnList = "organization_id")
+    @Index(name = "idx_users_organization_id", columnList = "organization_id"),
+    @Index(name = "idx_users_document", columnList = "organization_id, document_number")
 })
 @Data
 @NoArgsConstructor
@@ -1824,7 +1838,8 @@ public class UserEntity {
     @Column(name = "organization_id", nullable = false, columnDefinition = "UUID")
     private UUID organizationId;
 
-    @Column(name = "email", nullable = false, unique = true, length = 255)
+    // Email es OPCIONAL - Muchas zonas rurales no tienen email
+    @Column(name = "email", nullable = true, length = 255)
     private String email;
 
     @Column(name = "password_hash", nullable = false, length = 255)
@@ -1839,7 +1854,8 @@ public class UserEntity {
     @Column(name = "document_number", length = 50)
     private String documentNumber;
 
-    @Column(name = "phone", length = 20)
+    // Teléfono es OPCIONAL - Muchas zonas rurales no tienen acceso
+    @Column(name = "phone", nullable = true, length = 20)
     private String phone;
 
     @Column(name = "role", nullable = false, length = 50)
@@ -1923,9 +1939,11 @@ public class OrganizationDocument {
     @Field("address")
     private String address;
 
+    // Teléfono OPCIONAL - Zonas rurales sin acceso
     @Field("phone")
     private String phone;
 
+    // Email OPCIONAL - Zonas rurales sin acceso
     @Field("email")
     private String email;
 
