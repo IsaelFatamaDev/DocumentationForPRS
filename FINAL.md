@@ -536,8 +536,8 @@ vg-ms-users/
 │   │           ├── WebClientConfig.java                → [CLASS] @Configuration WebClient Bean
 │   │           ├── RabbitMQConfig.java                 → [CLASS] @Configuration RabbitMQ
 │   │           ├── Resilience4jConfig.java             → [CLASS] @Configuration Circuit Breaker
-│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration Spring Security WebFlux + JWT
-│   │           └── JwtAuthenticationFilter.java        → [CLASS] WebFilter JWT Token Validation
+│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration Role-based Authorization (sin JWT)
+│   │           └── RequestContextFilter.java           → [CLASS] WebFilter Lee headers del Gateway (X-User-Id, X-Role)
 │   │
 │   └── resources/
 │       ├── application.yml                             → Base común
@@ -1282,23 +1282,27 @@ vg-ms-authentication/
 
 ```
 
-### 11. vg-ms-gateway (API Gateway)
+### 11. vg-ms-gateway (API Gateway) - 🔐 **AUTENTICACIÓN CENTRALIZADA**
 
 ```
-
 vg-ms-gateway/
-└── src/main/java/com/vanguardia/gateway/
-    ├── config/
-    │   ├── GatewayConfig.java                          → Spring Cloud Gateway routes
-    │   ├── CorsConfig.java                             → CORS configuration
-    │   ├── SecurityConfig.java                         → JWT validation
-    │   └── LoadBalancerConfig.java                     → Load balancing strategy
-    │
-    ├── filters/
-    │   ├── AuthenticationFilter.java                   → Pre-filter: validar JWT
-    │   ├── LoggingFilter.java                          → Post-filter: logging
-    │   ├── RateLimitFilter.java                        → Rate limiting
-    │   └── CircuitBreakerFilter.java                   → Circuit breaker pattern
+├── src/main/
+│   ├── java/pe/edu/vallegrande/gateway/
+│   │   ├── config/
+│   │   │   ├── GatewayConfig.java                      → [CLASS] @Configuration Spring Cloud Gateway routes
+│   │   │   ├── CorsConfig.java                         → [CLASS] @Configuration CORS
+│   │   │   ├── SecurityConfig.java                     → [CLASS] @Configuration JWT Validation
+│   │   │   └── LoadBalancerConfig.java                 → [CLASS] @Configuration Load balancing
+│   │   │
+│   │   ├── filters/
+│   │   │   ├── JwtAuthenticationFilter.java            → [CLASS] ✅ Pre-filter: VALIDA JWT + PROPAGA HEADERS
+│   │   │   ├── LoggingFilter.java                      → [CLASS] Post-filter: logging
+│   │   │   ├── RateLimitFilter.java                    → [CLASS] Rate limiting
+│   │   │   └── CircuitBreakerFilter.java               → [CLASS] Circuit breaker pattern
+│   │   │
+│   │   ├── security/
+│   │   │   ├── JwtUtil.java                            → [CLASS] JWT Validation & Claims extraction
+│   │   │   └── RoleBasedAccessControl.java             → [CLASS] Role-based route protection
     │
     ├── routes/
     │   ├── UserRoutes.java                             → /api/users/**→ vg-ms-users
@@ -3115,6 +3119,42 @@ docker-compose restart vg-ms-users
 
 ## 🔐 SEGURIDAD Y GESTIÓN DE ROLES
 
+### 🏗️ **Arquitectura de Seguridad: Gateway Centralizado**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    FLUJO DE AUTENTICACIÓN/AUTORIZACIÓN              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  1. Cliente → Gateway                                               │
+│     Header: Authorization: Bearer {JWT}                             │
+│                                                                     │
+│  2. Gateway (JwtAuthenticationFilter)                               │
+│     ├─> Valida JWT (firma, expiración)                             │
+│     ├─> Extrae claims (userId, role, organizationId)               │
+│     ├─> Verifica rol permitido para la ruta                        │
+│     └─> Propaga headers a microservicios:                          │
+│         • X-User-Id: {userId}                                       │
+│         • X-Role: {role}                                            │
+│         • X-Organization-Id: {organizationId}                       │
+│                                                                     │
+│  3. Microservicio (RequestContextFilter)                            │
+│     ├─> Lee headers propagados (NO valida JWT)                     │
+│     ├─> Aplica autorización específica (@PreAuthorize)             │
+│     └─> Valida reglas de negocio (CLIENT solo sus datos)           │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**✅ VENTAJAS:**
+
+- JWT validado **UNA SOLA VEZ** en el Gateway (performance)
+- Microservicios **NO necesitan secret JWT** (seguridad)
+- Microservicios **confían en headers** del Gateway (simplificación)
+- Red interna (VPC) protegida (solo Gateway expuesto)
+
+---
+
 ### 📋 **Roles del Sistema**
 
 ```java
@@ -3158,16 +3198,206 @@ public enum Role {
 
 ---
 
-### 🛡️ **Configuración Spring Security WebFlux + JWT**
+### 🛡️ **Configuración de Seguridad**
 
-#### **1. SecurityConfig.java**
+---
+
+## 🚪 **1. GATEWAY - Autenticación JWT (Punto de entrada)**
+
+### **JwtAuthenticationFilter.java** (Gateway)
+
+```java
+package pe.edu.vallegrande.gateway.filters;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cloud.gateway.filter.GatewayFilter;
+import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.stereotype.Component;
+import pe.edu.vallegrande.gateway.security.JwtUtil;
+import reactor.core.publisher.Mono;
+
+import java.util.Map;
+
+@Slf4j
+@Component
+public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
+
+    private final JwtUtil jwtUtil;
+
+    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+        super(Config.class);
+        this.jwtUtil = jwtUtil;
+    }
+
+    @Override
+    public GatewayFilter apply(Config config) {
+        return (exchange, chain) -> {
+            ServerHttpRequest request = exchange.getRequest();
+            String path = request.getPath().value();
+
+            // Rutas públicas (sin JWT)
+            if (isPublicPath(path)) {
+                return chain.filter(exchange);
+            }
+
+            // Extraer JWT
+            String token = extractToken(request);
+            if (token == null) {
+                log.warn("No JWT token found for path: {}", path);
+                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                return exchange.getResponse().setComplete();
+            }
+
+            try {
+                // ✅ VALIDAR JWT
+                Map<String, String> claims = jwtUtil.validateAndExtractClaims(token);
+
+                String userId = claims.get("userId");
+                String role = claims.get("role");
+                String organizationId = claims.get("organizationId");
+
+                // ✅ VERIFICAR ROL PERMITIDO PARA LA RUTA
+                if (!isRoleAllowedForPath(path, role)) {
+                    log.warn("Role {} not allowed for path: {}", role, path);
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+
+                // ✅ PROPAGAR HEADERS A MICROSERVICIOS
+                ServerHttpRequest modifiedRequest = request.mutate()
+                    .header("X-User-Id", userId)
+                    .header("X-Role", role)
+                    .header("X-Organization-Id", organizationId)
+                    .build();
+
+                log.info("JWT validated for user: {} with role: {}", userId, role);
+                return chain.filter(exchange.mutate().request(modifiedRequest).build());
+
+            } catch (Exception e) {
+                log.error("Invalid JWT: {}", e.getMessage());
+                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                return exchange.getResponse().setComplete();
+            }
+        };
+    }
+
+    private String extractToken(ServerHttpRequest request) {
+        String bearerToken = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
+
+    private boolean isPublicPath(String path) {
+        return path.startsWith("/api/auth/") ||
+               path.startsWith("/actuator/") ||
+               path.equals("/health");
+    }
+
+    private boolean isRoleAllowedForPath(String path, String role) {
+        // SUPER_ADMIN: acceso total
+        if ("SUPER_ADMIN".equals(role)) return true;
+
+        // Rutas solo para SUPER_ADMIN
+        if (path.matches(".*/organizations$") && path.contains("POST")) return false;
+        if (path.matches(".*/organizations/.*/DELETE")) return false;
+
+        // Resto de rutas: ADMIN y CLIENT también pueden acceder
+        // (validación específica en microservicios)
+        return true;
+    }
+
+    public static class Config {
+        // Configuración adicional si es necesaria
+    }
+}
+```
+
+---
+
+## 🏢 **2. MICROSERVICIOS - Autorización (Sin validar JWT)**
+
+### **RequestContextFilter.java** (Microservicios)
+
+```java
+package pe.edu.vallegrande.users.infrastructure.config;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
+import reactor.core.publisher.Mono;
+
+import java.util.List;
+
+@Slf4j
+@Component
+public class RequestContextFilter implements WebFilter {
+
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        // ✅ LEER HEADERS PROPAGADOS DESDE EL GATEWAY
+        String userId = exchange.getRequest().getHeaders().getFirst("X-User-Id");
+        String role = exchange.getRequest().getHeaders().getFirst("X-Role");
+        String organizationId = exchange.getRequest().getHeaders().getFirst("X-Organization-Id");
+
+        // Si no hay headers, permitir (rutas públicas o error del gateway)
+        if (userId == null || role == null) {
+            return chain.filter(exchange);
+        }
+
+        // ✅ CREAR AUTHENTICATION SIN VALIDAR JWT (Gateway ya lo hizo)
+        List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(role));
+        UsernamePasswordAuthenticationToken authentication =
+            new UsernamePasswordAuthenticationToken(userId, null, authorities);
+
+        // Agregar información adicional
+        UserContext userContext = new UserContext(userId, organizationId, role);
+        authentication.setDetails(userContext);
+
+        log.debug("Request context set for user: {} with role: {}", userId, role);
+
+        // ✅ ESTABLECER CONTEXTO DE SEGURIDAD REACTIVO
+        return chain.filter(exchange)
+            .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
+    }
+
+    // Clase para almacenar contexto del usuario
+    public static class UserContext {
+        private final String userId;
+        private final String organizationId;
+        private final String role;
+
+        public UserContext(String userId, String organizationId, String role) {
+            this.userId = userId;
+            this.organizationId = organizationId;
+            this.role = role;
+        }
+
+        public String getUserId() { return userId; }
+        public String getOrganizationId() { return organizationId; }
+        public String getRole() { return role; }
+    }
+}
+```
+
+---
+
+### **SecurityConfig.java** (Microservicios - Simplificado)
 
 ```java
 package pe.edu.vallegrande.users.infrastructure.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
@@ -3182,10 +3412,10 @@ import org.springframework.security.web.server.context.NoOpServerSecurityContext
 @EnableReactiveMethodSecurity  // ✅ Habilita @PreAuthorize en métodos
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RequestContextFilter requestContextFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    public SecurityConfig(RequestContextFilter requestContextFilter) {
+        this.requestContextFilter = requestContextFilter;
     }
 
     @Bean
@@ -3196,49 +3426,18 @@ public class SecurityConfig {
             .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
             .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
 
-            // ═══════════════ RUTAS PÚBLICAS (sin autenticación) ═══════════════
+            // ═══════════════ AUTORIZACIÓN (Gateway ya validó JWT) ═══════════════
             .authorizeExchange(exchanges -> exchanges
-                // Login y registro son públicos
-                .pathMatchers("/api/auth/login", "/api/auth/register").permitAll()
-
-                // Actuator y health checks públicos
+                // Actuator público
                 .pathMatchers("/actuator/**", "/health").permitAll()
 
-                // ═══════════════ RUTAS PROTEGIDAS POR ROL ═══════════════
-
-                // SUPER_ADMIN: Crear organizaciones
-                .pathMatchers(HttpMethod.POST, "/api/organizations").hasAuthority("SUPER_ADMIN")
-                .pathMatchers(HttpMethod.DELETE, "/api/organizations/**").hasAuthority("SUPER_ADMIN")
-
-                // SUPER_ADMIN + ADMIN: Gestionar organizaciones
-                .pathMatchers(HttpMethod.PUT, "/api/organizations/**")
-                    .hasAnyAuthority("SUPER_ADMIN", "ADMIN")
-
-                // SUPER_ADMIN + ADMIN + CLIENT: Ver organizaciones
-                .pathMatchers(HttpMethod.GET, "/api/organizations/**")
-                    .hasAnyAuthority("SUPER_ADMIN", "ADMIN", "CLIENT")
-
-                // SUPER_ADMIN + ADMIN: Gestionar usuarios
-                .pathMatchers(HttpMethod.POST, "/api/users").hasAnyAuthority("SUPER_ADMIN", "ADMIN")
-                .pathMatchers(HttpMethod.GET, "/api/users").hasAnyAuthority("SUPER_ADMIN", "ADMIN")
-                .pathMatchers(HttpMethod.DELETE, "/api/users/**").hasAnyAuthority("SUPER_ADMIN", "ADMIN")
-
-                // Cualquier usuario autenticado puede ver su propio perfil
-                .pathMatchers(HttpMethod.GET, "/api/users/**").authenticated()
-                .pathMatchers(HttpMethod.PUT, "/api/users/**").authenticated()
-
-                // Pagos: Todos los roles autenticados (validación en capa de negocio)
-                .pathMatchers("/api/payments/**").authenticated()
-
-                // Reportes: Todos los roles autenticados (validación en capa de negocio)
-                .pathMatchers("/api/reports/**").authenticated()
-
-                // Resto de endpoints: requieren autenticación
+                // Resto: requiere autenticación (headers del Gateway)
+                // Autorización específica se maneja con @PreAuthorize en controllers
                 .anyExchange().authenticated()
             )
 
-            // ═══════════════ JWT FILTER ═══════════════
-            .addFilterAt(jwtAuthenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)
+            // ═══════════════ FILTRO PARA LEER HEADERS ═══════════════
+            .addFilterAt(requestContextFilter, SecurityWebFiltersOrder.AUTHENTICATION)
 
             .build();
     }
@@ -3250,9 +3449,12 @@ public class SecurityConfig {
 }
 ```
 
----
+**🔑 DIFERENCIAS CLAVE:**
 
-#### **2. JwtAuthenticationFilter.java**
+- ❌ **NO valida JWT** (Gateway ya lo hizo)
+- ✅ **Lee headers** X-User-Id, X-Role, X-Organization-Id
+- ✅ **Autorización simplificada** con @PreAuthorize
+- ✅ **Confía en el Gateway** (red interna VPC)
 
 ```java
 package pe.edu.vallegrande.users.infrastructure.config;
@@ -3377,7 +3579,7 @@ import pe.edu.vallegrande.users.application.dto.common.ApiResponse;
 import pe.edu.vallegrande.users.application.dto.request.CreateUserRequest;
 import pe.edu.vallegrande.users.application.dto.response.UserResponse;
 import pe.edu.vallegrande.users.domain.ports.in.ICreateUserUseCase;
-import pe.edu.vallegrande.users.infrastructure.config.JwtAuthenticationFilter.JwtUserDetails;
+import pe.edu.vallegrande.users.infrastructure.config.RequestContextFilter.UserContext;
 import reactor.core.publisher.Mono;
 
 @RestController
@@ -3550,24 +3752,40 @@ jwt:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│ NIVEL DE SEGURIDAD                                                  │
+│ ARQUITECTURA DE SEGURIDAD EN 3 CAPAS                                │
 ├─────────────────────────────────────────────────────────────────────┤
-│ 1. SecurityConfig (Spring Security)                                 │
-│    ├─> Rutas públicas (/api/auth/login)                            │
-│    ├─> Rutas protegidas por rol básico (.hasAuthority())           │
-│    └─> JWT Filter (validación de token)                            │
 │                                                                     │
-│ 2. Controller (@PreAuthorize)                                      │
-│    ├─> Validación de roles permitidos                              │
-│    └─> Extracción de información del JWT                           │
+│ 1. GATEWAY (Autenticación Centralizada)                            │
+│    ├─> JwtAuthenticationFilter                                     │
+│    │   ├─> Valida JWT (firma, expiración)                          │
+│    │   ├─> Extrae claims (userId, role, organizationId)            │
+│    │   ├─> Verifica rol básico para la ruta                        │
+│    │   └─> Propaga headers (X-User-Id, X-Role, X-Organization-Id)  │
+│    └─> Rutas públicas: /api/auth/*, /actuator/*, /health           │
 │                                                                     │
-│ 3. UseCase (Lógica de negocio)                                     │
-│    ├─> Validación de permisos específicos                          │
-│    │   (CLIENT solo ve sus datos)                                  │
-│    │   (ADMIN solo ve datos de su organización)                    │
-│    └─> Validación de reglas de negocio                             │
+│ 2. MICROSERVICIOS (Autorización)                                   │
+│    ├─> RequestContextFilter                                        │
+│    │   ├─> Lee headers propagados del Gateway                      │
+│    │   └─> Establece contexto de seguridad (sin validar JWT)       │
+│    ├─> @PreAuthorize en Controllers                                │
+│    │   └─> Validación de roles permitidos                          │
+│    └─> UseCase (Lógica de negocio)                                 │
+│        ├─> Validación de permisos específicos                      │
+│        │   (CLIENT solo ve sus datos)                              │
+│        │   (ADMIN solo ve datos de su organización)                │
+│        └─> Validación de reglas de negocio                         │
+│                                                                     │
+│ 3. RED VPC PRIVADA                                                  │
+│    └─> Solo Gateway expuesto públicamente                          │
+│        └─> Microservicios inaccesibles desde internet              │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+**🔐 SEGURIDAD EN CAPAS:**
+
+- **Gateway**: JWT + Role-based routing (SUPER_ADMIN rutas admin)
+- **Microservicios**: Authorization + Business rules (CLIENT solo sus datos)
+- **VPC**: Red privada (microservicios no expuestos)
 
 ---
 
