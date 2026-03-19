@@ -1,0 +1,51 @@
+stages:
+     - review
+     - docker
+     - deploy
+
+variables:
+     MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+     IMAGE_NAME: "$DOCKER_USERNAME/vg-ms-users"
+     DOCKER_TLS_CERTDIR: ""
+     DEPLOY_WEBHOOK_URL: "https://lab.vallegrande.edu.pe/api/deploy/FozAm4R0wXNxVtOJHyGlK"
+
+cache:
+     paths:
+          - .m2/repository
+
+code_review:
+     stage: review
+     image: maven:3.9.9-eclipse-temurin-17
+     script:
+          - chmod +x mvnw
+          - ./mvnw -B clean verify
+     rules:
+          - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"'
+
+docker_publish:
+     stage: docker
+     image: docker:27.1.2
+     services:
+          - docker:27.1.2-dind
+     needs:
+          - code_review
+     before_script:
+          - echo "$DOCKER_TOKEN" | docker login -u "$DOCKER_USERNAME" --password-stdin
+     script:
+          - docker build -t "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA" -t "$IMAGE_NAME:latest" .
+          - docker push "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA"
+          - docker push "$IMAGE_NAME:latest"
+     rules:
+          - if: '$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master")'
+          - if: "$CI_COMMIT_TAG"
+
+deploy_vps:
+     stage: deploy
+     image: curlimages/curl:8.10.1
+     needs:
+          - docker_publish
+     script:
+          - curl -fsS -X POST "$DEPLOY_WEBHOOK_URL" || curl -fsS "$DEPLOY_WEBHOOK_URL"
+     rules:
+          - if: '$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master")'
+          - if: "$CI_COMMIT_TAG"
