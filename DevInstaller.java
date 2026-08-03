@@ -1,4 +1,3 @@
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -7,21 +6,23 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.*;
+
 public class DevInstaller extends JFrame {
 
-    static final Color FONDO       = new Color(0x121318);
-    static final Color LATERAL     = new Color(0x17181F);
-    static final Color PANEL       = new Color(0x1D1F28);
+    static final Color FONDO = new Color(0x121318);
+    static final Color LATERAL = new Color(0x17181F);
+    static final Color PANEL = new Color(0x1D1F28);
     static final Color PANEL_HOVER = new Color(0x252836);
-    static final Color PANEL_SEL   = new Color(0x232A45);
-    static final Color BORDE       = new Color(0x2A2D3A);
-    static final Color TEXTO       = new Color(0xE7E8EC);
+    static final Color PANEL_SEL = new Color(0x232A45);
+    static final Color BORDE = new Color(0x2A2D3A);
+    static final Color TEXTO = new Color(0xE7E8EC);
     static final Color TEXTO_SUAVE = new Color(0x8B90A0);
-    static final Color ACENTO      = new Color(0x7C8CFF);
-    static final Color ACENTO_HOVER= new Color(0x95A2FF);
-    static final Color VERDE       = new Color(0x59D499);
-    static final Color ROJO        = new Color(0xF07178);
-    static final Color LOG_FONDO   = new Color(0x0E0F13);
+    static final Color ACENTO = new Color(0x7C8CFF);
+    static final Color ACENTO_HOVER = new Color(0x95A2FF);
+    static final Color VERDE = new Color(0x59D499);
+    static final Color ROJO = new Color(0xF07178);
+    static final Color LOG_FONDO = new Color(0x0E0F13);
 
     static final String FUENTE = loadFont();
 
@@ -35,14 +36,27 @@ public class DevInstaller extends JFrame {
         }
     }
 
-    static Font font(int estilo, int tam) { return new Font(FUENTE, estilo, tam); }
+    static Font font(int estilo, int tam) {
+        return new Font(FUENTE, estilo, tam);
+    }
 
     static class IconoCat implements Icon {
         final int tipo;
         final Color color;
-        IconoCat(int tipo, Color color) { this.tipo = tipo; this.color = color; }
-        public int getIconWidth()  { return 20; }
-        public int getIconHeight() { return 20; }
+
+        IconoCat(int tipo, Color color) {
+            this.tipo = tipo;
+            this.color = color;
+        }
+
+        public int getIconWidth() {
+            return 20;
+        }
+
+        public int getIconHeight() {
+            return 20;
+        }
+
         public void paintIcon(Component c, Graphics g, int x, int y) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -57,12 +71,15 @@ public class DevInstaller extends JFrame {
                     g2.fillRoundRect(11, 11, 6, 6, 3, 3);
                 }
                 case 1 -> {
-                    g2.drawPolyline(new int[]{7, 3, 7},  new int[]{5, 10, 15}, 3);
-                    g2.drawPolyline(new int[]{13, 17, 13}, new int[]{5, 10, 15}, 3);
+                    g2.drawPolyline(new int[] {7, 3, 7}, new int[] {5, 10, 15}, 3);
+                    g2.drawPolyline(new int[] {13, 17, 13}, new int[] {5, 10, 15}, 3);
                 }
-                case 2 -> g2.fillPolygon(
-                        new Polygon(new int[]{11, 5, 9, 8, 15, 10, 12},
-                                    new int[]{2, 11, 11, 18, 8, 8, 2}, 7));
+                case 2 ->
+                        g2.fillPolygon(
+                                new Polygon(
+                                        new int[] {11, 5, 9, 8, 15, 10, 12},
+                                        new int[] {2, 11, 11, 18, 8, 8, 2},
+                                        7));
                 case 3 -> {
                     g2.drawOval(4, 3, 12, 5);
                     g2.drawLine(4, 6, 4, 15);
@@ -94,11 +111,31 @@ public class DevInstaller extends JFrame {
 
     static class Spinner extends JComponent {
         private double angulo = 0;
-        private final Timer timer = new Timer(16, e -> { angulo += 0.18; repaint(); });
-        Spinner() { setPreferredSize(new Dimension(18, 18)); setVisible(false); }
-        void start() { setVisible(true); timer.start(); }
-        void stop() { timer.stop(); setVisible(false); }
-        @Override protected void paintComponent(Graphics g) {
+        private final Timer timer =
+                new Timer(
+                        16,
+                        e -> {
+                            angulo += 0.18;
+                            repaint();
+                        });
+
+        Spinner() {
+            setPreferredSize(new Dimension(18, 18));
+            setVisible(false);
+        }
+
+        void start() {
+            setVisible(true);
+            timer.start();
+        }
+
+        void stop() {
+            timer.stop();
+            setVisible(false);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setStroke(new BasicStroke(2.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
@@ -113,6 +150,7 @@ public class DevInstaller extends JFrame {
         final Color base;
         final Color hover;
         boolean encima = false;
+
         Boton(String txt, Color base, Color hover, Color texto, boolean negrita) {
             super(txt);
             this.base = base;
@@ -124,12 +162,24 @@ public class DevInstaller extends JFrame {
             setForeground(texto);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             setBorder(BorderFactory.createEmptyBorder(10, 22, 10, 22));
-            addMouseListener(new MouseAdapter() {
-                @Override public void mouseEntered(MouseEvent e) { encima = true;  repaint(); }
-                @Override public void mouseExited (MouseEvent e) { encima = false; repaint(); }
-            });
+            addMouseListener(
+                    new MouseAdapter() {
+                        @Override
+                        public void mouseEntered(MouseEvent e) {
+                            encima = true;
+                            repaint();
+                        }
+
+                        @Override
+                        public void mouseExited(MouseEvent e) {
+                            encima = false;
+                            repaint();
+                        }
+                    });
         }
-        @Override protected void paintComponent(Graphics g) {
+
+        @Override
+        protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(isEnabled() ? (encima ? hover : base) : new Color(0x272935));
@@ -145,9 +195,11 @@ public class DevInstaller extends JFrame {
         final String urlRespaldo;
         final int categoria;
         final TarjetaApp tarjeta;
+
         App(String nombre, String wingetId, int categoria, boolean marcada) {
             this(nombre, wingetId, categoria, marcada, null);
         }
+
         App(String nombre, String wingetId, int categoria, boolean marcada, String urlRespaldo) {
             this.nombre = nombre;
             this.wingetId = wingetId;
@@ -162,6 +214,7 @@ public class DevInstaller extends JFrame {
         final App app;
         boolean encima = false;
         boolean ignorarToggle = false;
+
         TarjetaApp(App app, boolean marcada) {
             this.app = app;
             setSelected(marcada);
@@ -170,23 +223,36 @@ public class DevInstaller extends JFrame {
             setContentAreaFilled(false);
             setFocusPainted(false);
             setBorderPainted(false);
-            addMouseListener(new MouseAdapter() {
-                @Override public void mouseEntered(MouseEvent e) { encima = true;  repaint(); }
-                @Override public void mouseExited (MouseEvent e) { encima = false; repaint(); }
-                @Override public void mousePressed(MouseEvent e) {
-                    if (app.wingetId.equals("NG") && inChip(e.getX())) {
-                        ignorarToggle = true;
-                        showVersions();
-                    }
-                }
-            });
-            addActionListener(e -> {
-                if (ignorarToggle) {
-                    setSelected(!isSelected());
-                    ignorarToggle = false;
-                }
-                refreshCounters();
-            });
+            addMouseListener(
+                    new MouseAdapter() {
+                        @Override
+                        public void mouseEntered(MouseEvent e) {
+                            encima = true;
+                            repaint();
+                        }
+
+                        @Override
+                        public void mouseExited(MouseEvent e) {
+                            encima = false;
+                            repaint();
+                        }
+
+                        @Override
+                        public void mousePressed(MouseEvent e) {
+                            if (app.wingetId.equals("NG") && inChip(e.getX())) {
+                                ignorarToggle = true;
+                                showVersions();
+                            }
+                        }
+                    });
+            addActionListener(
+                    e -> {
+                        if (ignorarToggle) {
+                            setSelected(!isSelected());
+                            ignorarToggle = false;
+                        }
+                        refreshCounters();
+                    });
         }
 
         boolean inChip(int x) {
@@ -197,24 +263,28 @@ public class DevInstaller extends JFrame {
             JPopupMenu menu = new JPopupMenu();
             menu.setBackground(PANEL);
             menu.setBorder(BorderFactory.createLineBorder(BORDE, 1));
-            for (String v : new String[]{"latest", "19", "18", "17", "16", "15"}) {
+            for (String v : new String[] {"latest", "19", "18", "17", "16", "15"}) {
                 JMenuItem item = new JMenuItem("Angular " + v);
                 item.setFont(font(Font.PLAIN, 12));
                 item.setOpaque(true);
                 item.setBackground(PANEL);
                 item.setForeground(v.equals(versionAngular) ? ACENTO_HOVER : TEXTO);
-                item.addActionListener(ev -> {
-                    versionAngular = v;
-                    repaint();
-                });
+                item.addActionListener(
+                        ev -> {
+                            versionAngular = v;
+                            repaint();
+                        });
                 menu.add(item);
             }
             menu.show(this, getWidth() - 100, getHeight() - 4);
         }
-        @Override protected void paintComponent(Graphics g) {
+
+        @Override
+        protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2.setRenderingHint(
+                    RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             int w = getWidth();
             int h = getHeight();
             g2.setColor(isSelected() ? PANEL_SEL : (encima ? PANEL_HOVER : PANEL));
@@ -251,8 +321,10 @@ public class DevInstaller extends JFrame {
                 g2.fillOval(cx, cy, 18, 18);
                 g2.setColor(new Color(0x14151A));
                 g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                g2.drawPolyline(new int[]{cx + 5, cx + 8, cx + 13},
-                                new int[]{cy + 9, cy + 12, cy + 6}, 3);
+                g2.drawPolyline(
+                        new int[] {cx + 5, cx + 8, cx + 13},
+                        new int[] {cy + 9, cy + 12, cy + 6},
+                        3);
             } else {
                 g2.setColor(BORDE);
                 g2.setStroke(new BasicStroke(1.4f));
@@ -260,6 +332,7 @@ public class DevInstaller extends JFrame {
             }
             g2.dispose();
         }
+
         String subtitle() {
             if (app.wingetId.equals("WSL")) return "wsl --install";
             if (app.wingetId.equals("NG")) return "npm - clic en el chip para elegir";
@@ -268,6 +341,7 @@ public class DevInstaller extends JFrame {
             if (app.wingetId.equals("OHMYPOSH")) return "instala + tema + fuente + WT";
             return app.wingetId;
         }
+
         String truncate(Graphics2D g2, String txt, int ancho) {
             FontMetrics fm = g2.getFontMetrics();
             if (fm.stringWidth(txt) <= ancho) return txt;
@@ -281,6 +355,7 @@ public class DevInstaller extends JFrame {
     class ItemLateral extends JToggleButton {
         final int indice;
         boolean encima = false;
+
         ItemLateral(int indice) {
             this.indice = indice;
             setPreferredSize(new Dimension(210, 42));
@@ -289,15 +364,28 @@ public class DevInstaller extends JFrame {
             setContentAreaFilled(false);
             setFocusPainted(false);
             setBorderPainted(false);
-            addMouseListener(new MouseAdapter() {
-                @Override public void mouseEntered(MouseEvent e) { encima = true;  repaint(); }
-                @Override public void mouseExited (MouseEvent e) { encima = false; repaint(); }
-            });
+            addMouseListener(
+                    new MouseAdapter() {
+                        @Override
+                        public void mouseEntered(MouseEvent e) {
+                            encima = true;
+                            repaint();
+                        }
+
+                        @Override
+                        public void mouseExited(MouseEvent e) {
+                            encima = false;
+                            repaint();
+                        }
+                    });
         }
-        @Override protected void paintComponent(Graphics g) {
+
+        @Override
+        protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2.setRenderingHint(
+                    RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             int w = getWidth();
             int h = getHeight();
             if (isSelected()) {
@@ -309,7 +397,8 @@ public class DevInstaller extends JFrame {
                 g2.setColor(PANEL);
                 g2.fillRoundRect(8, 3, w - 16, h - 6, 10, 10);
             }
-            new IconoCat(indice, isSelected() ? ACENTO : TEXTO_SUAVE).paintIcon(this, g2, 20, h / 2 - 10);
+            new IconoCat(indice, isSelected() ? ACENTO : TEXTO_SUAVE)
+                    .paintIcon(this, g2, 20, h / 2 - 10);
             g2.setFont(font(isSelected() ? Font.BOLD : Font.PLAIN, 13));
             g2.setColor(isSelected() ? Color.WHITE : TEXTO);
             g2.drawString(CATEGORIAS[indice], 48, h / 2 + 5);
@@ -335,8 +424,13 @@ public class DevInstaller extends JFrame {
     }
 
     static final String[] CATEGORIAS = {
-        "Todas las apps", "Desarrollo", "Runtimes y lenguajes",
-        "Bases de datos", "Comp. Microsoft", "Utilidades", "Fuentes de codigo"
+        "Todas las apps",
+        "Desarrollo",
+        "Runtimes y lenguajes",
+        "Bases de datos",
+        "Comp. Microsoft",
+        "Utilidades",
+        "Fuentes de codigo"
     };
 
     private final List<App> apps = new ArrayList<>();
@@ -345,12 +439,12 @@ public class DevInstaller extends JFrame {
     private final JTextField buscador = new JTextField();
     private final JTextArea log = new JTextArea();
     private String versionAngular = "19";
-    private final Boton btnInstalar = new Boton("Instalar seleccionadas",
-            ACENTO, ACENTO_HOVER, new Color(0x14151A), true);
-    private final Boton btnTodo = new Boton("Marcar todo",
-            new Color(0x262936), PANEL_HOVER, TEXTO, false);
-    private final Boton btnNada = new Boton("Limpiar",
-            new Color(0x262936), PANEL_HOVER, TEXTO, false);
+    private final Boton btnInstalar =
+            new Boton("Instalar seleccionadas", ACENTO, ACENTO_HOVER, new Color(0x14151A), true);
+    private final Boton btnTodo =
+            new Boton("Marcar todo", new Color(0x262936), PANEL_HOVER, TEXTO, false);
+    private final Boton btnNada =
+            new Boton("Limpiar", new Color(0x262936), PANEL_HOVER, TEXTO, false);
     private final JProgressBar progreso = new JProgressBar();
     private final JLabel estado = new JLabel("");
     private final Spinner spinner = new Spinner();
@@ -380,8 +474,11 @@ public class DevInstaller extends JFrame {
         JPanel envoltura = new JPanel(new BorderLayout());
         envoltura.setOpaque(false);
         envoltura.add(rejilla, BorderLayout.NORTH);
-        JScrollPane scroll = new JScrollPane(envoltura,
-                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        JScrollPane scroll =
+                new JScrollPane(
+                        envoltura,
+                        JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                        JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.setOpaque(false);
         scroll.getViewport().setOpaque(false);
         scroll.setBorder(BorderFactory.createEmptyBorder());
@@ -399,19 +496,45 @@ public class DevInstaller extends JFrame {
     private void createCatalog() {
         new App("Git", "Git.Git", 0, true);
         new App("GitHub CLI (gh)", "GitHub.cli", 0, true);
-        new App("Visual Studio Code", "Microsoft.VisualStudioCode", 0, true,
+        new App(
+                "Visual Studio Code",
+                "Microsoft.VisualStudioCode",
+                0,
+                true,
                 "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-user");
-        new App("IntelliJ IDEA Community", "JetBrains.IntelliJIDEA.Community", 0, true,
+        new App(
+                "IntelliJ IDEA Community",
+                "JetBrains.IntelliJIDEA.Community",
+                0,
+                true,
                 "https://download.jetbrains.com/product?code=IIC&latest&distribution=windows");
-        new App("IntelliJ IDEA Ultimate", "JetBrains.IntelliJIDEA.Ultimate", 0, false,
+        new App(
+                "IntelliJ IDEA Ultimate",
+                "JetBrains.IntelliJIDEA.Ultimate",
+                0,
+                false,
                 "https://download.jetbrains.com/product?code=IIU&latest&distribution=windows");
         new App("Apache Maven", "Apache.Maven", 0, true);
         new App("Obsidian", "Obsidian.Obsidian", 0, true);
-        new App("Postman", "Postman.Postman", 0, false,
+        new App(
+                "Postman",
+                "Postman.Postman",
+                0,
+                false,
                 "https://dl.pstmn.io/download/latest/win64");
         new App("Bruno", "Bruno.Bruno", 0, false);
-        new App("Docker Desktop", "Docker.DockerDesktop", 0, false, "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe");
-        new App("Eclipse IDE (Java)", "EclipseFoundation.EclipseIDEforJavaDevelopers", 0, false, "https://download.eclipse.org/oomph/products/eclipse-inst-jre-win64.exe");
+        new App(
+                "Docker Desktop",
+                "Docker.DockerDesktop",
+                0,
+                false,
+                "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe");
+        new App(
+                "Eclipse IDE (Java)",
+                "EclipseFoundation.EclipseIDEforJavaDevelopers",
+                0,
+                false,
+                "https://download.eclipse.org/oomph/products/eclipse-inst-jre-win64.exe");
         new App("Apache NetBeans", "Apache.NetBeans", 0, false);
 
         new App("Java 8 (Temurin JDK)", "EclipseAdoptium.Temurin.8.JDK", 1, false);
@@ -421,7 +544,12 @@ public class DevInstaller extends JFrame {
         new App("Java 25 (Temurin JDK)", "EclipseAdoptium.Temurin.25.JDK", 1, false);
         new App("Node.js LTS", "OpenJS.NodeJS.LTS", 1, true);
         new App("Node.js Current", "OpenJS.NodeJS", 1, false);
-        new App("NVM for Windows", "CoreyButler.NVMforWindows", 1, false, "https://github.com/coreybutler/nvm-windows/releases/latest/download/nvm-setup.exe");
+        new App(
+                "NVM for Windows",
+                "CoreyButler.NVMforWindows",
+                1,
+                false,
+                "https://github.com/coreybutler/nvm-windows/releases/latest/download/nvm-setup.exe");
         new App("pnpm", "pnpm.pnpm", 1, true);
         new App("Angular CLI", "NG", 1, true);
         new App("Python 3.10", "Python.Python.3.10", 1, false);
@@ -430,32 +558,105 @@ public class DevInstaller extends JFrame {
         new App("Python 3.13", "Python.Python.3.13", 1, false);
         new App("Python 3.14", "Python.Python.3.14", 1, false);
         new App("Go", "GoLang.Go", 1, false);
-        new App("Rust (rustup)", "Rustlang.Rustup", 1, false, "https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe");
-        new App(".NET SDK 8", "Microsoft.DotNet.SDK.8", 1, false, "https://aka.ms/dotnet/8.0/dotnet-sdk-win-x64.exe");
+        new App(
+                "Rust (rustup)",
+                "Rustlang.Rustup",
+                1,
+                false,
+                "https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe");
+        new App(
+                ".NET SDK 8",
+                "Microsoft.DotNet.SDK.8",
+                1,
+                false,
+                "https://aka.ms/dotnet/8.0/dotnet-sdk-win-x64.exe");
         new App("Configurar PATH y JAVA_HOME", "ENV_PATH", 1, true);
 
-        new App("SSMS (SQL Server)", "Microsoft.SQLServerManagementStudio", 2, true,
+        new App(
+                "SSMS (SQL Server)",
+                "Microsoft.SQLServerManagementStudio",
+                2,
+                true,
                 "https://aka.ms/ssmsfullsetup");
         new App("pgAdmin (PostgreSQL)", "PostgreSQL.pgAdmin", 2, true);
         new App("MySQL Workbench", "Oracle.MySQLWorkbench", 2, false);
         new App("HeidiSQL", "HeidiSQL.HeidiSQL", 2, false);
-        new App("DBeaver", "dbeaver.dbeaver", 2, true, "https://dbeaver.io/files/dbeaver-ce-latest-x86_64-setup.exe");
-        new App("DataGrip (JetBrains)", "JetBrains.DataGrip", 2, false,
+        new App(
+                "DBeaver",
+                "dbeaver.dbeaver",
+                2,
+                true,
+                "https://dbeaver.io/files/dbeaver-ce-latest-x86_64-setup.exe");
+        new App(
+                "DataGrip (JetBrains)",
+                "JetBrains.DataGrip",
+                2,
+                false,
                 "https://download.jetbrains.com/product?code=DG&latest&distribution=windows");
         new App("MongoDB Compass", "MongoDB.Compass.Full", 2, false);
         new App("Redis Desktop Manager", "qishibo.AnotherRedisDesktopManager", 2, false);
         new App("Azure Data Studio", "Microsoft.AzureDataStudio", 2, false);
 
-        new App("VC++ Redist 2015+ x64", "Microsoft.VCRedist.2015+.x64", 3, true, "https://aka.ms/vs/17/release/vc_redist.x64.exe");
-        new App("VC++ Redist 2015+ x86", "Microsoft.VCRedist.2015+.x86", 3, true, "https://aka.ms/vs/17/release/vc_redist.x86.exe");
-        new App("VC++ Redist 2013 x64", "Microsoft.VCRedist.2013.x64", 3, false, "https://aka.ms/highdpimfc2013x64enu");
-        new App("VC++ Redist 2012 x64", "Microsoft.VCRedist.2012.x64", 3, false, "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x64.exe");
-        new App(".NET Desktop Runtime 8", "Microsoft.DotNet.DesktopRuntime.8", 3, true, "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe");
-        new App(".NET Desktop Runtime 9", "Microsoft.DotNet.DesktopRuntime.9", 3, false, "https://aka.ms/dotnet/9.0/windowsdesktop-runtime-win-x64.exe");
-        new App(".NET Runtime 8", "Microsoft.DotNet.Runtime.8", 3, false, "https://aka.ms/dotnet/8.0/dotnet-runtime-win-x64.exe");
-        new App(".NET Framework 4.8.1 Dev", "Microsoft.DotNet.Framework.DeveloperPack_4", 3, false, "https://go.microsoft.com/fwlink/?linkid=2203306");
-        new App("DirectX Runtime", "Microsoft.DirectX", 3, false, "https://download.microsoft.com/download/1/7/1/1718CCC4-6315-4D8E-9543-8E28A4E18C4C/dxwebsetup.exe");
-        new App("Edge WebView2", "Microsoft.EdgeWebView2Runtime", 3, false, "https://go.microsoft.com/fwlink/p/?LinkId=2124703");
+        new App(
+                "VC++ Redist 2015+ x64",
+                "Microsoft.VCRedist.2015+.x64",
+                3,
+                true,
+                "https://aka.ms/vs/17/release/vc_redist.x64.exe");
+        new App(
+                "VC++ Redist 2015+ x86",
+                "Microsoft.VCRedist.2015+.x86",
+                3,
+                true,
+                "https://aka.ms/vs/17/release/vc_redist.x86.exe");
+        new App(
+                "VC++ Redist 2013 x64",
+                "Microsoft.VCRedist.2013.x64",
+                3,
+                false,
+                "https://aka.ms/highdpimfc2013x64enu");
+        new App(
+                "VC++ Redist 2012 x64",
+                "Microsoft.VCRedist.2012.x64",
+                3,
+                false,
+                "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x64.exe");
+        new App(
+                ".NET Desktop Runtime 8",
+                "Microsoft.DotNet.DesktopRuntime.8",
+                3,
+                true,
+                "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe");
+        new App(
+                ".NET Desktop Runtime 9",
+                "Microsoft.DotNet.DesktopRuntime.9",
+                3,
+                false,
+                "https://aka.ms/dotnet/9.0/windowsdesktop-runtime-win-x64.exe");
+        new App(
+                ".NET Runtime 8",
+                "Microsoft.DotNet.Runtime.8",
+                3,
+                false,
+                "https://aka.ms/dotnet/8.0/dotnet-runtime-win-x64.exe");
+        new App(
+                ".NET Framework 4.8.1 Dev",
+                "Microsoft.DotNet.Framework.DeveloperPack_4",
+                3,
+                false,
+                "https://go.microsoft.com/fwlink/?linkid=2203306");
+        new App(
+                "DirectX Runtime",
+                "Microsoft.DirectX",
+                3,
+                false,
+                "https://download.microsoft.com/download/1/7/1/1718CCC4-6315-4D8E-9543-8E28A4E18C4C/dxwebsetup.exe");
+        new App(
+                "Edge WebView2",
+                "Microsoft.EdgeWebView2Runtime",
+                3,
+                false,
+                "https://go.microsoft.com/fwlink/p/?LinkId=2124703");
 
         new App("Windows Terminal", "Microsoft.WindowsTerminal", 4, true);
         new App("Oh My Posh (terminal pro)", "OHMYPOSH", 4, true);
@@ -463,16 +664,27 @@ public class DevInstaller extends JFrame {
         new App("Notepad++", "Notepad++.Notepad++", 4, false);
         new App("7-Zip", "7zip.7zip", 4, true);
         new App("WinRAR", "RARLab.WinRAR", 4, true);
-        new App("Google Chrome", "Google.Chrome", 4, false,
+        new App(
+                "Google Chrome",
+                "Google.Chrome",
+                4,
+                false,
                 "https://dl.google.com/chrome/install/latest/chrome_installer.exe");
-        new App("Brave", "Brave.Brave", 4, false,
-                "https://laptop-updates.brave.com/latest/winx64");
+        new App("Brave", "Brave.Brave", 4, false, "https://laptop-updates.brave.com/latest/winx64");
         new App("FileZilla (FTP)", "TimKosse.FileZilla.Client", 4, false);
-        new App("WinSCP (SFTP)", "WinSCP.WinSCP", 4, false, "https://sourceforge.net/projects/winscp/files/latest/download");
+        new App(
+                "WinSCP (SFTP)",
+                "WinSCP.WinSCP",
+                4,
+                false,
+                "https://sourceforge.net/projects/winscp/files/latest/download");
         new App("PuTTY (SSH)", "PuTTY.PuTTY", 4, false);
-        new App("Figma", "Figma.Figma", 4, false,
-                "https://desktop.figma.com/win/FigmaSetup.exe");
-        new App("Notion", "Notion.Notion", 4, false,
+        new App("Figma", "Figma.Figma", 4, false, "https://desktop.figma.com/win/FigmaSetup.exe");
+        new App(
+                "Notion",
+                "Notion.Notion",
+                4,
+                false,
                 "https://www.notion.so/desktop/windows/download");
         new App("WSL (Subsistema Linux)", "WSL", 4, false);
 
@@ -537,29 +749,43 @@ public class DevInstaller extends JFrame {
         buscador.setCaretColor(TEXTO);
         buscador.setOpaque(false);
         buscador.setBorder(BorderFactory.createEmptyBorder(9, 14, 9, 14));
-        buscador.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) { rebuildGrid(); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e) { rebuildGrid(); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { rebuildGrid(); }
-        });
-        JPanel cajaBuscador = new JPanel(new BorderLayout()) {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(PANEL);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                g2.setColor(BORDE);
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
-                if (buscador.getText().isEmpty() && !buscador.hasFocus()) {
-                    g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                            RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                    g2.setFont(font(Font.PLAIN, 13));
-                    g2.setColor(TEXTO_SUAVE);
-                    g2.drawString("Buscar aplicacion...", 16, getHeight() / 2 + 5);
-                }
-                g2.dispose();
-            }
-        };
+        buscador.getDocument()
+                .addDocumentListener(
+                        new javax.swing.event.DocumentListener() {
+                            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                                rebuildGrid();
+                            }
+
+                            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                                rebuildGrid();
+                            }
+
+                            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                                rebuildGrid();
+                            }
+                        });
+        JPanel cajaBuscador =
+                new JPanel(new BorderLayout()) {
+                    @Override
+                    protected void paintComponent(Graphics g) {
+                        Graphics2D g2 = (Graphics2D) g.create();
+                        g2.setRenderingHint(
+                                RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        g2.setColor(PANEL);
+                        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                        g2.setColor(BORDE);
+                        g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
+                        if (buscador.getText().isEmpty() && !buscador.hasFocus()) {
+                            g2.setRenderingHint(
+                                    RenderingHints.KEY_TEXT_ANTIALIASING,
+                                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                            g2.setFont(font(Font.PLAIN, 13));
+                            g2.setColor(TEXTO_SUAVE);
+                            g2.drawString("Buscar aplicacion...", 16, getHeight() / 2 + 5);
+                        }
+                        g2.dispose();
+                    }
+                };
         cajaBuscador.setOpaque(false);
         cajaBuscador.add(buscador, BorderLayout.CENTER);
         cajaBuscador.setPreferredSize(new Dimension(300, 38));
@@ -630,29 +856,47 @@ public class DevInstaller extends JFrame {
 
     private void styleScroll(JScrollPane s) {
         s.getVerticalScrollBar().setUnitIncrement(14);
-        s.getVerticalScrollBar().setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
-            @Override protected void configureScrollBarColors() {
-                thumbColor = new Color(0x353948);
-            }
-            @Override protected JButton createDecreaseButton(int o) { return zeroButton(); }
-            @Override protected JButton createIncreaseButton(int o) { return zeroButton(); }
-            private JButton zeroButton() {
-                JButton b = new JButton();
-                b.setPreferredSize(new Dimension(0, 0));
-                return b;
-            }
-            @Override protected void paintThumb(Graphics g, JComponent c, Rectangle r) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(thumbColor);
-                g2.fillRoundRect(r.x + 2, r.y, r.width - 4, r.height, 8, 8);
-                g2.dispose();
-            }
-            @Override protected void paintTrack(Graphics g, JComponent c, Rectangle r) {
-                g.setColor(FONDO);
-                g.fillRect(r.x, r.y, r.width, r.height);
-            }
-        });
+        s.getVerticalScrollBar()
+                .setUI(
+                        new javax.swing.plaf.basic.BasicScrollBarUI() {
+                            @Override
+                            protected void configureScrollBarColors() {
+                                thumbColor = new Color(0x353948);
+                            }
+
+                            @Override
+                            protected JButton createDecreaseButton(int o) {
+                                return zeroButton();
+                            }
+
+                            @Override
+                            protected JButton createIncreaseButton(int o) {
+                                return zeroButton();
+                            }
+
+                            private JButton zeroButton() {
+                                JButton b = new JButton();
+                                b.setPreferredSize(new Dimension(0, 0));
+                                return b;
+                            }
+
+                            @Override
+                            protected void paintThumb(Graphics g, JComponent c, Rectangle r) {
+                                Graphics2D g2 = (Graphics2D) g.create();
+                                g2.setRenderingHint(
+                                        RenderingHints.KEY_ANTIALIASING,
+                                        RenderingHints.VALUE_ANTIALIAS_ON);
+                                g2.setColor(thumbColor);
+                                g2.fillRoundRect(r.x + 2, r.y, r.width - 4, r.height, 8, 8);
+                                g2.dispose();
+                            }
+
+                            @Override
+                            protected void paintTrack(Graphics g, JComponent c, Rectangle r) {
+                                g.setColor(FONDO);
+                                g.fillRect(r.x, r.y, r.width, r.height);
+                            }
+                        });
         s.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
     }
 
@@ -665,9 +909,10 @@ public class DevInstaller extends JFrame {
     private boolean matchesFilter(App a) {
         String filtro = buscador.getText().trim().toLowerCase();
         boolean deCategoria = categoriaActual == 0 || a.categoria == categoriaActual - 1;
-        boolean coincide = filtro.isEmpty()
-                || a.nombre.toLowerCase().contains(filtro)
-                || a.wingetId.toLowerCase().contains(filtro);
+        boolean coincide =
+                filtro.isEmpty()
+                        || a.nombre.toLowerCase().contains(filtro)
+                        || a.wingetId.toLowerCase().contains(filtro);
         return deCategoria && coincide;
     }
 
@@ -692,17 +937,19 @@ public class DevInstaller extends JFrame {
     }
 
     private void logLine(String linea) {
-        SwingUtilities.invokeLater(() -> {
-            log.append(linea + "\n");
-            log.setCaretPosition(log.getDocument().getLength());
-        });
+        SwingUtilities.invokeLater(
+                () -> {
+                    log.append(linea + "\n");
+                    log.setCaretPosition(log.getDocument().getLength());
+                });
     }
 
     private void setStatus(String txt, Color color) {
-        SwingUtilities.invokeLater(() -> {
-            estado.setText(txt);
-            estado.setForeground(color);
-        });
+        SwingUtilities.invokeLater(
+                () -> {
+                    estado.setText(txt);
+                    estado.setForeground(color);
+                });
     }
 
     private void install() {
@@ -717,72 +964,120 @@ public class DevInstaller extends JFrame {
         progreso.setMaximum(seleccionadas.size());
         progreso.setValue(0);
 
-        new Thread(() -> {
-            int ok = 0;
-            int fallo = 0;
-            int hechas = 0;
-            int total = seleccionadas.size();
+        new Thread(
+                        () -> {
+                            int ok = 0;
+                            int fallo = 0;
+                            int hechas = 0;
+                            int total = seleccionadas.size();
 
-            if (!hasWinget() && !repairWinget()) {
-                logLine("[ERROR] No se pudo instalar winget automaticamente.");
-                logLine("        Abre Microsoft Store, busca 'App Installer', instalalo y reintenta.");
-                setStatus("winget no disponible", ROJO);
-                SwingUtilities.invokeLater(() -> { spinner.stop(); btnInstalar.setEnabled(true); });
-                return;
-            }
+                            if (!hasWinget() && !repairWinget()) {
+                                logLine("[ERROR] No se pudo instalar winget automaticamente.");
+                                logLine(
+                                        "        Abre Microsoft Store, busca 'App Installer',"
+                                            + " instalalo y reintenta.");
+                                setStatus("winget no disponible", ROJO);
+                                SwingUtilities.invokeLater(
+                                        () -> {
+                                            spinner.stop();
+                                            btnInstalar.setEnabled(true);
+                                        });
+                                return;
+                            }
 
-            for (App a : seleccionadas) {
-                logLine("");
-                logLine("==> Instalando " + a.nombre + "...");
-                setStatus("Instalando " + a.nombre + "  (" + (hechas + 1) + "/" + total + ")", ACENTO);
-                int codigo;
-                if (a.wingetId.equals("WSL")) {
-                    logLine("    Habilita caracteristicas de Windows e instala Ubuntu.");
-                    logLine("    Requiere administrador y REINICIAR al terminar.");
-                    codigo = runCommand("cmd.exe", "/c", "wsl --install");
-                } else if (a.wingetId.equals("NG")) {
-                    String paquete = versionAngular.equals("latest")
-                            ? "@angular/cli" : "@angular/cli@" + versionAngular;
-                    logLine("    npm install -g " + paquete);
-                    codigo = runCommand("cmd.exe", "/c", "npm install -g " + paquete);
-                    if (codigo != 0) {
-                        logLine("    Si acabas de instalar Node.js, abre una terminal NUEVA y ejecuta:");
-                        logLine("    npm install -g " + paquete);
-                    }
-                } else if (a.wingetId.equals("FONT_INTER")) {
-                    codigo = installInterFont();
-                } else if (a.wingetId.equals("ENV_PATH")) {
-                    codigo = configureEnvironment();
-                } else if (a.wingetId.equals("OHMYPOSH")) {
-                    codigo = configureOhMyPosh();
-                } else {
-                    codigo = runCommand(rutaWinget, "install", "--id", a.wingetId, "-e",
-                            "--silent", "--accept-source-agreements", "--accept-package-agreements");
-                    if (codigo != 0 && a.urlRespaldo != null) {
-                        logLine("    winget fallo (codigo " + codigo + "). Probando descarga directa...");
-                        codigo = downloadAndInstall(a);
-                    }
-                }
-                if (codigo == 0) {
-                    ok++;
-                    logLine("    [OK] " + a.nombre + " instalado.");
-                } else {
-                    fallo++;
-                    logLine("    [ERROR] " + a.nombre + " termino con codigo " + codigo
-                            + " (puede que ya este instalado).");
-                }
-                hechas++;
-                int v = hechas;
-                SwingUtilities.invokeLater(() -> progreso.setValue(v));
-            }
+                            for (App a : seleccionadas) {
+                                logLine("");
+                                logLine("==> Instalando " + a.nombre + "...");
+                                setStatus(
+                                        "Instalando "
+                                                + a.nombre
+                                                + "  ("
+                                                + (hechas + 1)
+                                                + "/"
+                                                + total
+                                                + ")",
+                                        ACENTO);
+                                int codigo;
+                                if (a.wingetId.equals("WSL")) {
+                                    logLine(
+                                            "    Habilita caracteristicas de Windows e instala"
+                                                + " Ubuntu.");
+                                    logLine("    Requiere administrador y REINICIAR al terminar.");
+                                    codigo = runCommand("cmd.exe", "/c", "wsl --install");
+                                } else if (a.wingetId.equals("NG")) {
+                                    String paquete =
+                                            versionAngular.equals("latest")
+                                                    ? "@angular/cli"
+                                                    : "@angular/cli@" + versionAngular;
+                                    logLine("    npm install -g " + paquete);
+                                    codigo =
+                                            runCommand(
+                                                    "cmd.exe", "/c", "npm install -g " + paquete);
+                                    if (codigo != 0) {
+                                        logLine(
+                                                "    Si acabas de instalar Node.js, abre una"
+                                                    + " terminal NUEVA y ejecuta:");
+                                        logLine("    npm install -g " + paquete);
+                                    }
+                                } else if (a.wingetId.equals("FONT_INTER")) {
+                                    codigo = installInterFont();
+                                } else if (a.wingetId.equals("ENV_PATH")) {
+                                    codigo = configureEnvironment();
+                                } else if (a.wingetId.equals("OHMYPOSH")) {
+                                    codigo = configureOhMyPosh();
+                                } else {
+                                    codigo =
+                                            runCommand(
+                                                    rutaWinget,
+                                                    "install",
+                                                    "--id",
+                                                    a.wingetId,
+                                                    "-e",
+                                                    "--silent",
+                                                    "--accept-source-agreements",
+                                                    "--accept-package-agreements");
+                                    if (codigo != 0 && a.urlRespaldo != null) {
+                                        logLine(
+                                                "    winget fallo (codigo "
+                                                        + codigo
+                                                        + "). Probando descarga directa...");
+                                        codigo = downloadAndInstall(a);
+                                    }
+                                }
+                                if (codigo == 0) {
+                                    ok++;
+                                    logLine("    [OK] " + a.nombre + " instalado.");
+                                } else {
+                                    fallo++;
+                                    logLine(
+                                            "    [ERROR] "
+                                                    + a.nombre
+                                                    + " termino con codigo "
+                                                    + codigo
+                                                    + " (puede que ya este instalado).");
+                                }
+                                hechas++;
+                                int v = hechas;
+                                SwingUtilities.invokeLater(() -> progreso.setValue(v));
+                            }
 
-            logLine("");
-            logLine("========================================");
-            logLine("Terminado: " + ok + " correctas, " + fallo + " con error.");
-            logLine("Abre una terminal NUEVA para que se reconozcan los comandos (git, node, mvn...).");
-            setStatus("Terminado: " + ok + " OK, " + fallo + " con error", fallo == 0 ? VERDE : ROJO);
-            SwingUtilities.invokeLater(() -> { spinner.stop(); btnInstalar.setEnabled(true); });
-        }, "instalador").start();
+                            logLine("");
+                            logLine("========================================");
+                            logLine("Terminado: " + ok + " correctas, " + fallo + " con error.");
+                            logLine(
+                                    "Abre una terminal NUEVA para que se reconozcan los comandos"
+                                        + " (git, node, mvn...).");
+                            setStatus(
+                                    "Terminado: " + ok + " OK, " + fallo + " con error",
+                                    fallo == 0 ? VERDE : ROJO);
+                            SwingUtilities.invokeLater(
+                                    () -> {
+                                        spinner.stop();
+                                        btnInstalar.setEnabled(true);
+                                    });
+                        },
+                        "instalador")
+                .start();
     }
 
     private boolean hasWinget() {
@@ -802,40 +1097,62 @@ public class DevInstaller extends JFrame {
         logLine("");
         logLine("==> winget no encontrado. Intentando repararlo...");
         setStatus("Instalando winget...", ACENTO);
-        runCommand("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
-                "Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe");
-        if (hasWinget()) { logLine("    [OK] winget reparado."); return true; }
+        runCommand(
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "Add-AppxPackage -RegisterByFamilyName -MainPackage"
+                    + " Microsoft.DesktopAppInstaller_8wekyb3d8bbwe");
+        if (hasWinget()) {
+            logLine("    [OK] winget reparado.");
+            return true;
+        }
         logLine("==> Descargando App Installer (winget) desde Microsoft...");
-        runCommand("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
-                "$ProgressPreference='SilentlyContinue';" +
-                "$p=\"$env:TEMP\\winget.msixbundle\";" +
-                "Invoke-WebRequest -Uri https://aka.ms/getwinget -OutFile $p;" +
-                "Add-AppxPackage -Path $p");
-        if (hasWinget()) { logLine("    [OK] winget instalado."); return true; }
+        runCommand(
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "$ProgressPreference='SilentlyContinue';"
+                        + "$p=\"$env:TEMP\\winget.msixbundle\";"
+                        + "Invoke-WebRequest -Uri https://aka.ms/getwinget -OutFile $p;"
+                        + "Add-AppxPackage -Path $p");
+        if (hasWinget()) {
+            logLine("    [OK] winget instalado.");
+            return true;
+        }
         return false;
     }
 
     private int downloadAndInstall(App a) {
         try {
             logLine("    Descargando: " + a.urlRespaldo);
-            java.net.http.HttpClient cliente = java.net.http.HttpClient.newBuilder()
-                    .followRedirects(java.net.http.HttpClient.Redirect.ALWAYS)
-                    .connectTimeout(java.time.Duration.ofSeconds(30))
-                    .build();
-            java.net.http.HttpRequest peticion = java.net.http.HttpRequest
-                    .newBuilder(java.net.URI.create(a.urlRespaldo))
-                    .header("User-Agent", "DevInstaller/2.0")
-                    .build();
+            java.net.http.HttpClient cliente =
+                    java.net.http.HttpClient.newBuilder()
+                            .followRedirects(java.net.http.HttpClient.Redirect.ALWAYS)
+                            .connectTimeout(java.time.Duration.ofSeconds(30))
+                            .build();
+            java.net.http.HttpRequest peticion =
+                    java.net.http.HttpRequest.newBuilder(java.net.URI.create(a.urlRespaldo))
+                            .header("User-Agent", "DevInstaller/2.0")
+                            .build();
             String ext = a.urlRespaldo.toLowerCase().contains(".msi") ? ".msi" : ".exe";
             java.io.File destino = java.io.File.createTempFile("instalador-", ext);
-            java.net.http.HttpResponse<java.nio.file.Path> resp = cliente.send(peticion,
-                    java.net.http.HttpResponse.BodyHandlers.ofFile(destino.toPath()));
+            java.net.http.HttpResponse<java.nio.file.Path> resp =
+                    cliente.send(
+                            peticion,
+                            java.net.http.HttpResponse.BodyHandlers.ofFile(destino.toPath()));
             if (resp.statusCode() >= 400 || destino.length() == 0) {
                 logLine("    [ERROR] La descarga fallo (HTTP " + resp.statusCode() + ").");
                 return -1;
             }
-            logLine("    Descargado (" + Math.max(1, destino.length() / (1024 * 1024))
-                    + " MB). Ejecutando instalador, sigue las ventanas que aparezcan...");
+            logLine(
+                    "    Descargado ("
+                            + Math.max(1, destino.length() / (1024 * 1024))
+                            + " MB). Ejecutando instalador, sigue las ventanas que aparezcan...");
             if (ext.equals(".msi")) return runCommand("msiexec", "/i", destino.getAbsolutePath());
             return runCommand(destino.getAbsolutePath());
         } catch (Exception e) {
@@ -848,8 +1165,13 @@ public class DevInstaller extends JFrame {
         try {
             java.io.File script = java.io.File.createTempFile("devinstaller-", ".ps1");
             java.nio.file.Files.writeString(script.toPath(), contenido);
-            return runCommand("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
-                    "-File", script.getAbsolutePath());
+            return runCommand(
+                    "powershell",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    script.getAbsolutePath());
         } catch (Exception e) {
             logLine("    [ERROR] " + e.getMessage());
             return -1;
@@ -858,89 +1180,135 @@ public class DevInstaller extends JFrame {
 
     private int configureEnvironment() {
         logLine("    Configurando JAVA_HOME y PATH del usuario...");
-        return runScript(String.join("\n",
-            "$ErrorActionPreference='SilentlyContinue'",
-            "$jdk = Get-ChildItem 'C:\\Program Files\\Eclipse Adoptium' -Directory |",
-            "  Where-Object Name -like 'jdk-*' | Sort-Object Name -Descending | Select-Object -First 1",
-            "if ($jdk) {",
-            "  [Environment]::SetEnvironmentVariable('JAVA_HOME', $jdk.FullName, 'User')",
-            "  Write-Output ('JAVA_HOME = ' + $jdk.FullName)",
-            "  $path = [Environment]::GetEnvironmentVariable('Path','User')",
-            "  $bin = Join-Path $jdk.FullName 'bin'",
-            "  if ($path -notlike ('*' + $bin + '*')) {",
-            "    [Environment]::SetEnvironmentVariable('Path', ($path.TrimEnd(';') + ';' + $bin), 'User')",
-            "    Write-Output 'PATH: agregado bin del JDK'",
-            "  } else { Write-Output 'PATH: el JDK ya estaba' }",
-            "} else { Write-Output 'No se encontro JDK de Adoptium (instala Java primero)' }",
-            "$mvn = Get-ChildItem 'C:\\Program Files\\Apache\\Maven','C:\\ProgramData\\chocolatey' -Directory 2>$null |",
-            "  Where-Object Name -like 'apache-maven*' | Select-Object -First 1",
-            "if ($mvn) {",
-            "  [Environment]::SetEnvironmentVariable('MAVEN_HOME', $mvn.FullName, 'User')",
-            "  Write-Output ('MAVEN_HOME = ' + $mvn.FullName)",
-            "}",
-            "Write-Output 'Variables configuradas. Abre una terminal NUEVA para verlas.'",
-            "exit 0"));
+        return runScript(
+                String.join(
+                        "\n",
+                        "$ErrorActionPreference='SilentlyContinue'",
+                        "$jdk = Get-ChildItem 'C:\\Program Files\\Eclipse Adoptium' -Directory |",
+                        "  Where-Object Name -like 'jdk-*' | Sort-Object Name -Descending |"
+                            + " Select-Object -First 1",
+                        "if ($jdk) {",
+                        "  [Environment]::SetEnvironmentVariable('JAVA_HOME', $jdk.FullName,"
+                            + " 'User')",
+                        "  Write-Output ('JAVA_HOME = ' + $jdk.FullName)",
+                        "  $path = [Environment]::GetEnvironmentVariable('Path','User')",
+                        "  $bin = Join-Path $jdk.FullName 'bin'",
+                        "  if ($path -notlike ('*' + $bin + '*')) {",
+                        "    [Environment]::SetEnvironmentVariable('Path', ($path.TrimEnd(';') +"
+                            + " ';' + $bin), 'User')",
+                        "    Write-Output 'PATH: agregado bin del JDK'",
+                        "  } else { Write-Output 'PATH: el JDK ya estaba' }",
+                        "} else { Write-Output 'No se encontro JDK de Adoptium (instala Java"
+                            + " primero)' }",
+                        "$mvn = Get-ChildItem 'C:\\Program"
+                            + " Files\\Apache\\Maven','C:\\ProgramData\\chocolatey' -Directory"
+                            + " 2>$null |",
+                        "  Where-Object Name -like 'apache-maven*' | Select-Object -First 1",
+                        "if ($mvn) {",
+                        "  [Environment]::SetEnvironmentVariable('MAVEN_HOME', $mvn.FullName,"
+                            + " 'User')",
+                        "  Write-Output ('MAVEN_HOME = ' + $mvn.FullName)",
+                        "}",
+                        "Write-Output 'Variables configuradas. Abre una terminal NUEVA para"
+                            + " verlas.'",
+                        "exit 0"));
     }
 
     private int configureOhMyPosh() {
         logLine("    Paso 1/3: instalando Oh My Posh...");
-        runCommand(rutaWinget, "install", "--id", "JanDeDobbeleer.OhMyPosh", "-e",
-                "--silent", "--accept-source-agreements", "--accept-package-agreements");
+        runCommand(
+                rutaWinget,
+                "install",
+                "--id",
+                "JanDeDobbeleer.OhMyPosh",
+                "-e",
+                "--silent",
+                "--accept-source-agreements",
+                "--accept-package-agreements");
         logLine("    Paso 2/3: instalando JetBrains Mono Nerd Font (para los iconos)...");
-        runCommand(rutaWinget, "install", "--id", "DEVCOM.JetBrainsMonoNerdFont", "-e",
-                "--silent", "--accept-source-agreements", "--accept-package-agreements");
+        runCommand(
+                rutaWinget,
+                "install",
+                "--id",
+                "DEVCOM.JetBrainsMonoNerdFont",
+                "-e",
+                "--silent",
+                "--accept-source-agreements",
+                "--accept-package-agreements");
         logLine("    Paso 3/3: configurando perfiles de PowerShell y Windows Terminal...");
-        return runScript(String.join("\n",
-            "$ErrorActionPreference='SilentlyContinue'",
-            "$perfiles = @(",
-            "  (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'WindowsPowerShell\\Microsoft.PowerShell_profile.ps1'),",
-            "  (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell\\Microsoft.PowerShell_profile.ps1')",
-            ")",
-            "$linea = 'oh-my-posh init pwsh --config \"$env:POSH_THEMES_PATH\\atomic.omp.json\" | Invoke-Expression'",
-            "foreach ($p in $perfiles) {",
-            "  New-Item -ItemType Directory -Force -Path (Split-Path $p) | Out-Null",
-            "  if (!(Test-Path $p) -or !(Select-String -Path $p -SimpleMatch 'oh-my-posh init' -Quiet)) {",
-            "    Add-Content -Path $p -Value $linea",
-            "    Write-Output ('Perfil configurado: ' + $p)",
-            "  } else { Write-Output ('Ya estaba configurado: ' + $p) }",
-            "}",
-            "$ws = \"$env:LOCALAPPDATA\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json\"",
-            "if (Test-Path $ws) {",
-            "  $j = Get-Content $ws -Raw | ConvertFrom-Json",
-            "  if (-not $j.profiles.defaults) {",
-            "    $j.profiles | Add-Member -MemberType NoteProperty -Name defaults -Value ([pscustomobject]@{}) -Force",
-            "  }",
-            "  $fuenteWT = [pscustomobject]@{ face = 'JetBrainsMono Nerd Font'; size = 11 }",
-            "  $j.profiles.defaults | Add-Member -MemberType NoteProperty -Name font -Value $fuenteWT -Force",
-            "  $j.profiles.defaults | Add-Member -MemberType NoteProperty -Name colorScheme -Value 'One Half Dark' -Force",
-            "  $j.profiles.defaults | Add-Member -MemberType NoteProperty -Name opacity -Value 96 -Force",
-            "  $j.profiles.defaults | Add-Member -MemberType NoteProperty -Name useAcrylic -Value $true -Force",
-            "  $j | ConvertTo-Json -Depth 32 | Set-Content $ws -Encoding UTF8",
-            "  Write-Output 'Windows Terminal: fuente Nerd Font, esquema y opacidad configurados.'",
-            "} else { Write-Output 'Windows Terminal aun sin abrir: abrelo una vez y reinstala esta opcion.' }",
-            "reg add 'HKCU\\Console\\%%Startup' /v DelegationConsole /t REG_SZ /d '{2EACA947-7F5F-4CFA-BA87-8F7FBEEFBE69}' /f | Out-Null",
-            "reg add 'HKCU\\Console\\%%Startup' /v DelegationTerminal /t REG_SZ /d '{E12CFF52-A866-4C77-9A90-F570A7AA2C6B}' /f | Out-Null",
-            "Write-Output 'Windows Terminal establecida como terminal predeterminada.'",
-            "Write-Output 'Listo: abre Windows Terminal y disfruta tu prompt con estilo.'",
-            "exit 0"));
+        return runScript(
+                String.join(
+                        "\n",
+                        "$ErrorActionPreference='SilentlyContinue'",
+                        "$perfiles = @(",
+                        "  (Join-Path ([Environment]::GetFolderPath('MyDocuments'))"
+                            + " 'WindowsPowerShell\\Microsoft.PowerShell_profile.ps1'),",
+                        "  (Join-Path ([Environment]::GetFolderPath('MyDocuments'))"
+                            + " 'PowerShell\\Microsoft.PowerShell_profile.ps1')",
+                        ")",
+                        "$linea = 'oh-my-posh init pwsh --config"
+                            + " \"$env:POSH_THEMES_PATH\\atomic.omp.json\" | Invoke-Expression'",
+                        "foreach ($p in $perfiles) {",
+                        "  New-Item -ItemType Directory -Force -Path (Split-Path $p) | Out-Null",
+                        "  if (!(Test-Path $p) -or !(Select-String -Path $p -SimpleMatch"
+                            + " 'oh-my-posh init' -Quiet)) {",
+                        "    Add-Content -Path $p -Value $linea",
+                        "    Write-Output ('Perfil configurado: ' + $p)",
+                        "  } else { Write-Output ('Ya estaba configurado: ' + $p) }",
+                        "}",
+                        "$ws ="
+                            + " \"$env:LOCALAPPDATA\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json\"",
+                        "if (Test-Path $ws) {",
+                        "  $j = Get-Content $ws -Raw | ConvertFrom-Json",
+                        "  if (-not $j.profiles.defaults) {",
+                        "    $j.profiles | Add-Member -MemberType NoteProperty -Name defaults"
+                            + " -Value ([pscustomobject]@{}) -Force",
+                        "  }",
+                        "  $fuenteWT = [pscustomobject]@{ face = 'JetBrainsMono Nerd Font'; size ="
+                            + " 11 }",
+                        "  $j.profiles.defaults | Add-Member -MemberType NoteProperty -Name font"
+                            + " -Value $fuenteWT -Force",
+                        "  $j.profiles.defaults | Add-Member -MemberType NoteProperty -Name"
+                            + " colorScheme -Value 'One Half Dark' -Force",
+                        "  $j.profiles.defaults | Add-Member -MemberType NoteProperty -Name opacity"
+                            + " -Value 96 -Force",
+                        "  $j.profiles.defaults | Add-Member -MemberType NoteProperty -Name"
+                            + " useAcrylic -Value $true -Force",
+                        "  $j | ConvertTo-Json -Depth 32 | Set-Content $ws -Encoding UTF8",
+                        "  Write-Output 'Windows Terminal: fuente Nerd Font, esquema y opacidad"
+                            + " configurados.'",
+                        "} else { Write-Output 'Windows Terminal aun sin abrir: abrelo una vez y"
+                            + " reinstala esta opcion.' }",
+                        "reg add 'HKCU\\Console\\%%Startup' /v DelegationConsole /t REG_SZ /d"
+                            + " '{2EACA947-7F5F-4CFA-BA87-8F7FBEEFBE69}' /f | Out-Null",
+                        "reg add 'HKCU\\Console\\%%Startup' /v DelegationTerminal /t REG_SZ /d"
+                            + " '{E12CFF52-A866-4C77-9A90-F570A7AA2C6B}' /f | Out-Null",
+                        "Write-Output 'Windows Terminal establecida como terminal predeterminada.'",
+                        "Write-Output 'Listo: abre Windows Terminal y disfruta tu prompt con"
+                            + " estilo.'",
+                        "exit 0"));
     }
 
     private int installInterFont() {
         try {
             java.io.File tmp = java.io.File.createTempFile("Inter", ".ttf");
-            try (java.io.InputStream in = DevInstaller.class.getResourceAsStream("/fonts/Inter.ttf");
-                 java.io.OutputStream salida = new java.io.FileOutputStream(tmp)) {
+            try (java.io.InputStream in =
+                            DevInstaller.class.getResourceAsStream("/fonts/Inter.ttf");
+                    java.io.OutputStream salida = new java.io.FileOutputStream(tmp)) {
                 in.transferTo(salida);
             }
             String comando =
-                "$dir=\"$env:LOCALAPPDATA\\Microsoft\\Windows\\Fonts\";" +
-                "New-Item -ItemType Directory -Force -Path $dir | Out-Null;" +
-                "$destino=Join-Path $dir 'Inter.ttf';" +
-                "Copy-Item -Force '" + tmp.getAbsolutePath() + "' $destino;" +
-                "$reg='HKCU:\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts';" +
-                "New-Item -Path $reg -Force | Out-Null;" +
-                "New-ItemProperty -Path $reg -Name 'Inter (TrueType)' -Value $destino -PropertyType String -Force | Out-Null";
-            return runCommand("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", comando);
+                    "$dir=\"$env:LOCALAPPDATA\\Microsoft\\Windows\\Fonts\";"
+                            + "New-Item -ItemType Directory -Force -Path $dir | Out-Null;"
+                            + "$destino=Join-Path $dir 'Inter.ttf';"
+                            + "Copy-Item -Force '"
+                            + tmp.getAbsolutePath()
+                            + "' $destino;$reg='HKCU:\\Software\\Microsoft\\Windows"
+                            + " NT\\CurrentVersion\\Fonts';New-Item -Path $reg -Force |"
+                            + " Out-Null;New-ItemProperty -Path $reg -Name 'Inter (TrueType)'"
+                            + " -Value $destino -PropertyType String -Force | Out-Null";
+            return runCommand(
+                    "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", comando);
         } catch (Exception e) {
             logLine("    [ERROR] " + e.getMessage());
             return -1;
